@@ -1,0 +1,11 @@
+{
+    "name": "qafoolabs/xhprof-collector",
+    "description": "Simple library that wraps Xhprof profile collection.",
+    "license": "MIT",
+    "autoload": {
+        "psr-0": {"Xhprof\\": "src/main"}
+    },
+    "require-dev": {
+        "phake/phake": "@stable"
+    }
+}
