@@ -6,6 +6,7 @@
         "psr-0": {"Xhprof\\": "src/main"}
     },
     "require-dev": {
-        "phake/phake": "@stable"
+        "phake/phake": "@stable",
+        "mikey179/vfsStream": "@stable"
     }
 }
