@@ -1,4 +1,4 @@
-# Xhprof Client
+# Xhprof Collector
 
 Wrapper around Xhprof API.
 
