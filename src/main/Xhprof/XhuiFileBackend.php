@@ -34,6 +34,6 @@ class XhuiFileBackend implements Backend
             'date' => time(),
         );
 
-        file_put_contents($this->directory . "/xhui_" . time() . ".gz.json", gzcompress(json_encode($profile)));
+        file_put_contents($this->directory . "/xhui_" . time() . ".json.gz", gzcompress(json_encode($profile)));
     }
 }
