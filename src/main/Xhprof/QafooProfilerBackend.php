@@ -30,7 +30,11 @@ class QafooProfilerBackend implements Backend
 
     public function store(array $data, $operationName, $hostname, $ipAddress)
     {
-        $measurement = array('op' => $operationName, 'wt' => $data['main()']['wt'], 'apiKey' => $this->apiKey);
+        if (!isset($data['main()']['wt']) || !$data['main()']['wt']) {
+            return;
+        }
+
+        $measurement = array('op' => $operationName, 'wt' => round($data['main()']['wt'] / 1000), 'apiKey' => $this->apiKey);
 
         $fp = @stream_socket_client("udp://127.0.0.1:8135", $errno, $errstr, 1);
 
