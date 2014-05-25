@@ -39,7 +39,7 @@ class QafooProfilerBackend implements Backend
         }
 
         fwrite($fp, json_encode($measurement));
-        $shouldProfile = fread($fp);
+        $shouldProfile = fread($fp, 1);
         fclose($fp);
 
         if (!$shouldProfile) {
