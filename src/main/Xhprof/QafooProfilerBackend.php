@@ -34,9 +34,14 @@ class QafooProfilerBackend implements Backend
             return;
         }
 
+        if (!$operationName) {
+            return;
+        }
+
         $measurement = array('op' => $operationName, 'wt' => round($data['main()']['wt'] / 1000), 'apiKey' => $this->apiKey);
 
         $fp = @stream_socket_client("udp://127.0.0.1:8135", $errno, $errstr, 1);
+        stream_set_timeout($fp, 0, 100);
 
         if (!$fp) {
             return;
@@ -51,6 +56,7 @@ class QafooProfilerBackend implements Backend
         }
 
         $fp = @stream_socket_client("tcp://127.0.0.1:8136", $errno, $errstr, 1);
+        stream_set_timeout($fp, 0, 100);
 
         if (!$fp) {
             return;
