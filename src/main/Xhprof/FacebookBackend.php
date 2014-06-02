@@ -24,7 +24,12 @@ class FacebookBackend implements Backend
         $this->appName = $appName;
     }
 
-    public function store(array $data, $operationName, $hostname, $ipAddress)
+    public function storeMeasurement($operationName, $duration, $operationType)
+    {
+        // ignore
+    }
+
+    public function storeProfile($operationName, array $data, array $customMeasurements)
     {
         file_put_contents(
             $this->directory . "/" . time() . "." . $this->appName . ".xhprof",

@@ -14,9 +14,11 @@
 namespace Xhprof;
 
 /**
- * Transmit profiling data to the local Qafoo Profiler daemon via UDP+TCP.
+ * Directly transfer profiles to the UI.
+ *
+ * Beware, the API Server will aggressivly rate-limit if you send too many profiles.
  */
-class QafooProfilerBackend implements Backend
+class QafooDeveloperBackend implements Backend
 {
     /**
      * @var string
@@ -30,17 +32,7 @@ class QafooProfilerBackend implements Backend
 
     public function storeMeasurement($operationName, $duration, $operationType)
     {
-        $measurement = array('op' => $operationName, 'ot' => $operationType, 'wt' => round($duration / 1000), 'apiKey' => $this->apiKey);
-
-        $fp = @stream_socket_client("udp://127.0.0.1:8135", $errno, $errstr, 1);
-        stream_set_timeout($fp, 0, 20);
-
-        if (!$fp) {
-            return;
-        }
-
-        fwrite($fp, json_encode($measurement));
-        fclose($fp);
+        // does nothing
     }
 
     public function storeProfile($operationName, array $data, array $customMeasurements)
@@ -49,21 +41,26 @@ class QafooProfilerBackend implements Backend
             return;
         }
 
-        $fp = @stream_socket_client("tcp://127.0.0.1:8136", $errno, $errstr, 0.05);
-        stream_set_timeout($fp, 0, 100);
-
-        if (!$fp) {
-            return;
-        }
-
         $profile = array(
             'apiKey' => $this->apiKey,
             'op' => $operationName,
             'data' => $data,
             'custom' => $customMeasurements,
+            'hostname' => gethostname(),
+            'ipAddress' => isset($_SERVER['SERVER_ADDR']) ? $_SERVER['SERVER_ADDR'] : gethostname()
         );
 
-        fwrite($fp, json_encode($profile));
-        fclose($fp);
+        $ch = curl_init('https://mabilis.qafoolabs.com/api/profile/create');
+        curl_setopt_array($ch, array(
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_RETURNTRANSFER => TRUE,
+            CURLOPT_SSL_VERIFYPEER => TRUE,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_CAINFO => __DIR__ . '/../../resources/cabundle.crt',
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($profile),
+            CURLOPT_HTTPHEADER => array('Content-Type: application/json', 'User-Agent' => 'QafooLabs Xhprof Collector DevMode'),
+        ));
+        curl_exec($ch);
     }
 }

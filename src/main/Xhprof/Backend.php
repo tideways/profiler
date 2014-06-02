@@ -15,5 +15,6 @@ namespace Xhprof;
 
 interface Backend
 {
-    public function store(array $data, $operationName, $hostname, $ipAddress);
+    public function storeMeasurement($operationName, $duration, $operationType);
+    public function storeProfile($operationName, array $data, array $customMeasurements);
 }
