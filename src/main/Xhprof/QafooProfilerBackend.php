@@ -49,21 +49,23 @@ class QafooProfilerBackend implements Backend
             return;
         }
 
-        $fp = @stream_socket_client("tcp://127.0.0.1:8136", $errno, $errstr, 0.05);
-        stream_set_timeout($fp, 0, 100);
-
-        if (!$fp) {
-            return;
-        }
-
         $profile = array(
             'apiKey' => $this->apiKey,
             'op' => $operationName,
             'data' => $data,
             'custom' => $customMeasurements,
         );
+        $data = json_encode($profile);
 
-        fwrite($fp, json_encode($profile));
-        fclose($fp);
+        $s = microtime(true);
+        $fp = @stream_socket_client("unix:///tmp/qprofd.sock", $errno, $errstr, 0.05);
+
+        if (!$fp) {
+            return;
+        }
+
+        stream_set_timeout($fp, 0, 5000); // 5 milliseconds max
+        @fwrite($fp, $data);
+        @fclose($fp);
     }
 }

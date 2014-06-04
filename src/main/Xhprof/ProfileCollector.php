@@ -42,7 +42,7 @@ class ProfileCollector
         $this->customMeasurements = array();
         $this->started = microtime(true);
         $this->profiling = $this->starter->shouldProfile();
-        $this->operationType = php_sapi_name() === 'cli' ? self::TYPE_WORKER : TYPE_WEB;
+        $this->operationType = php_sapi_name() === 'cli' ? self::TYPE_WORKER : self::TYPE_WEB;
 
         if ( ! $this->shutdownRegistered) {
             $this->shutdownRegistered = true;
