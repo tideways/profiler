@@ -12,11 +12,11 @@ There are three ways to install the Profiler Client:
    put it into `/usr/lib/php5/<yourapiversion>/qafooprofiler.so` and integrate in php.ini
 2. Use Composer to install this library with:
 
-        ```json
-        {
-            "require": {"qafoolabs/profiler":"@stable"}
-        }
-        ```
+   ```json
+   {
+       "require": {"qafoolabs/profiler":"@stable"}
+   }
+   ```
 
 3. Copy the `src/main/QafooLabs/Profiler.php` file into your project and call it via `require`.
 
@@ -75,7 +75,7 @@ now you are responsible yourself to prune this information from sensitive data.
 If you want to force collecting profiles during development and send them to
 the Qafoo Profiler you can do so by using the `startDevelopment` method:
 
-```
+```php
 <?php
 
 \QafooLabs\Profiler::startDevelopment($apiKey);
@@ -90,7 +90,7 @@ profiles will get you blocked.
 You can correlate several requests by adding a correlation id that the profiler
 will combine in the UI:
 
-```
+```php
 <?php
 
 \QafooLabs\Profiler::setCorrelationId($uuid);
