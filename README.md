@@ -79,7 +79,7 @@ the Qafoo Profiler you can do so by using the `startDevelopment` method:
 <?php
 
 \QafooLabs\Profiler::startDevelopment($apiKey);
-```.
+```
 
 Please note that this is very slow in production as the overhead of HTTP is present
 in every request. We are also rate-limiting our API endpoint and sending too many
