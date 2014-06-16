@@ -1,13 +1,8 @@
 {
-    "name": "qafoolabs/xhprof-collector",
-    "description": "Simple library that wraps Xhprof profile collection.",
+    "name": "qafoolabs/profiler",
+    "description": "Simple library that wraps Xhprof profile collection and sends to Qafoo Profiler",
     "license": "MIT",
     "autoload": {
-        "psr-0": {"Xhprof\\": "src/main"},
-        "files": ["src/main/qafoolabs_profiler.php"]
-    },
-    "require-dev": {
-        "phake/phake": "@stable",
-        "mikey179/vfsStream": "@stable"
+        "psr-0": {"QafooLabs\\Profiler":"src/main"}
     }
 }
