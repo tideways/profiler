@@ -13,6 +13,11 @@
 
 namespace QafooLabs;
 
+// Guard against PECL extension
+if (class_exists('QafooLabs\Profiler')) {
+    return;
+}
+
 /**
  * QafooLabs Profiler PHP API
  *
