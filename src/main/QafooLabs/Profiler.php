@@ -263,7 +263,10 @@ class Profiler
             "Content-Type: application/json",
             "UserAgent: QafooLabs Profiler Collector DevMode"
         ]);
-        curl_exec($ch);
+
+        if (curl_exec($ch) === false) {
+            throw new \RuntimeException("Failure while pushing profiling data to Qafoo Profiler: " . curl_error($ch));
+        }
     }
 
     private static function storeProfile($operationName, $data, $customTimers, $operationType)
