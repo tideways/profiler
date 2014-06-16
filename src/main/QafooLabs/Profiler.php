@@ -142,7 +142,7 @@ class Profiler
     private static function init($type, $apiKey)
     {
         if (self::$shutdownRegistered == false) {
-            register_shutdown_function(array("QafooProfiler\\Collector", "shutdown"));
+            register_shutdown_function(array("QafooLabs\\Profiler", "shutdown"));
             self::$shutdownRegistered = true;
         }
 
@@ -240,7 +240,7 @@ class Profiler
         $ch = curl_init("https://profiler.qafoolabs.com/api/profile/create");
         curl_setopt($ch, CURLOPT_TIMEOUT, 2);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        if (file_Exists('/etc/ssl/certs/ca-certificates.crt')) {
+        if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
             curl_setopt($ch, CURLOPT_CAINFO, "/etc/ssl/certs/ca-certificates.crt");
@@ -252,10 +252,12 @@ class Profiler
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array(
             "apiKey" => self::$apiKey,
             "op" => $operationName,
+            "ot" => self::TYPE_DEV,
+            "cid" => (string)self::$correlationId,
+            "mem" => round(memory_get_peak_usage() / 1024),
             "data" => $data,
             "custom" => $customTimers,
-            "hostname" => gethostname(),
-            "ipAddress" => isset($_SERVER["SERVER_ADDR"]) ? $_SERVER["SERVER_ADDR"] : gethostname()
+            "server" => gethostname(),
         )));
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             "Content-Type: application/json",
@@ -287,7 +289,7 @@ class Profiler
             "apiKey" => self::$apiKey,
             "ot" => $operationType,
             "mem" => round(memory_get_peak_usage() / 1024),
-            "cid" => self::$correlationId
+            "cid" => (string)self::$correlationId
         )));
         fclose($fp);
         error_reporting($old);
