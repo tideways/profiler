@@ -63,9 +63,15 @@ class Profiler
     private static $operationType;
     private static $error;
     private static $profiling = false;
+    private static $sampling = false;
     private static $correlationId;
 
-    public static function startDevelopment($apiKey)
+    /**
+     * Start profiling in development mode.
+     *
+     * This will always generate a full profile and send it to the profiler via cURL.
+     */
+    public static function startDevelopment($apiKey, $flags = 0, array $options = array())
     {
         if (self::$started) {
             return;
@@ -82,10 +88,10 @@ class Profiler
             return;
         }
 
-        xhprof_enable();
+        xhprof_enable($flags, $options);
     }
 
-    public static function start($apiKey, $force = false)
+    public static function start($apiKey, $force = false, array $functionWhitelist = array())
     {
         if (self::$started) {
             return;
@@ -97,25 +103,34 @@ class Profiler
 
         self::init(php_sapi_name() == "cli" ? self::TYPE_WORKER : self::TYPE_WEB, $apiKey);
 
-        if ($force) {
-            self::$profiling = true;
-        } else {
-            self::$profiling = self::decideProfiling();
-        }
-
-        if (self::$profiling == false) {
+        if (function_exists("xhprof_enable") == false) {
             return;
         }
 
-        xhprof_enable();
+        self::$profiling = $force ?: self::$profiling = self::decideProfiling();
+
+        if (self::$profiling == true) {
+            xhprof_enable(); // full profiling mode
+            return;
+        }
+
+        // careless hack to do this with a custom version, need to fork own 'xhprof' extension soon.
+        if (version_compare(phpversion('xhprof'), '0.9.5') < 0) {
+            return;
+        }
+
+        if (!$functionWhitelist && strpos($apiKey, '..') === false && file_exists('/etc/qafooprofiler/' . $apiKey . '.php')) {
+            $functionWhitelist = require_once '/etc/qafooprofiler/' . $apiKey . '.php';
+        }
+
+        if ($functionWhitelist) {
+            xhprof_enable(0, array('functions' => $functionWhitelist));
+            self::$sampling = true;
+        }
     }
 
     private static function decideProfiling()
     {
-        if (function_exists("xhprof_enable") == false) {
-            return false;
-        }
-
         if (isset($_GET["_qprofiler"]) && $_GET["_qprofiler"] === md5(self::$apiKey)) {
             return true;
         }
@@ -139,6 +154,23 @@ class Profiler
         return $rand <= $treshold;
     }
 
+    /**
+     * Ignore this transaction and don't collect profiling or performance measurements.
+     *
+     * @return void
+     */
+    public function ignoreTransaction()
+    {
+        if (self::$started && (self::$profiling || self::$sampling)) {
+            self::$profiling = false;
+            self::$sampling = false;
+
+            xhprof_disable();
+        }
+
+        self::$started = false;
+    }
+
     private static function init($type, $apiKey)
     {
         if (self::$shutdownRegistered == false) {
@@ -146,6 +178,8 @@ class Profiler
             self::$shutdownRegistered = true;
         }
 
+        self::$profiling = false;
+        self::$sampling = false;
         self::$apiKey = $apiKey;
         self::$customTimers = array();
         self::$customTimerCount = 0;
@@ -160,6 +194,16 @@ class Profiler
         self::$correlationId = $id;
     }
 
+    public static function setTransactionName($name)
+    {
+        self::$operationName = $name;
+    }
+
+    /**
+     * Use {@link setTransactionName} instead.
+     *
+     * @deprecated
+     */
     public static function setOperationName($name)
     {
         self::$operationName = $name;
@@ -200,11 +244,16 @@ class Profiler
         }
 
         $data = null;
-        if (self::$profiling) {
+        $sampling = self::$sampling;
+
+        if (self::$profiling || self::$sampling) {
             $data = xhprof_disable();
         }
         $duration = microtime(true) - self::$started;
+
         self::$started = false;
+        self::$profiling = false;
+        self::$sampling = false;
 
         if (!self::$operationName) {
             return;
@@ -220,8 +269,8 @@ class Profiler
             return;
         }
 
-        if (self::$profiling) {
-            self::storeProfile(self::$operationName, $data, self::$customTimers, self::$operationType);
+        if ($data) {
+            self::storeProfile(self::$operationName, $data, self::$customTimers, self::$operationType, $sampling);
         } else {
             self::storeMeasurement(self::$operationName, intval(round($duration * 1000)), self::$operationType);
         }
@@ -269,7 +318,7 @@ class Profiler
         }
     }
 
-    private static function storeProfile($operationName, $data, $customTimers, $operationType)
+    private static function storeProfile($operationName, $data, $customTimers, $operationType, $sampling)
     {
         if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
             return;
@@ -292,7 +341,8 @@ class Profiler
             "apiKey" => self::$apiKey,
             "ot" => $operationType,
             "mem" => round(memory_get_peak_usage() / 1024),
-            "cid" => (string)self::$correlationId
+            "cid" => (string)self::$correlationId,
+            "s" => $sampling
         )));
         fclose($fp);
         error_reporting($old);
@@ -321,6 +371,21 @@ class Profiler
         error_reporting($old);
     }
 
+    /**
+     * Use Request or Script information for the transaction name.
+     *
+     * @return void
+     */
+    public static function useRequestAsTransactionName()
+    {
+        self::setTransactionName(self::guessOperationName());
+    }
+
+    /**
+     * Use {@link useRequestAsTransactionName()} instead.
+     *
+     * @deprecated
+     */
     public static function guessOperationName()
     {
         if (php_sapi_name() === "cli") {
