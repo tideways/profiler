@@ -91,7 +91,36 @@ class Profiler
         xhprof_enable($flags, $options);
     }
 
-    public static function start($apiKey, $force = false, array $functionWhitelist = array())
+    /**
+     * Start production profiling for the application.
+     *
+     * There are three modes for profiling:
+     *
+     * 1. Wall-time only profiling of the complete request (no overhead)
+     * 2. Full profile/trace using xhprof (depending of # function calls
+     *    significant overhead)
+     * 3. Whitelist-profiling mode only interesting functions.
+     *    (5-40% overhead, requires custom xhprof version >= 0.95)
+     *
+     * Decisions to profile are made based on a sample-rate and random picks.
+     * You can influence the sample rate and pick a value that suites your
+     * application. Applications with lower request rates need a much higher
+     * transaction rate (25-50%) than applications with high load (<= 1%).
+     *
+     * Factors that influence sample rate:
+     *
+     * 1. Second parameter $sampleRate to start() method.
+     * 2. _qprofiler Query Parameter equals md5 hash of API-Key sets sample rate to 100%
+     * 3. X-QPTreshold and X-QPHash HTTP Headers. The hash is a sha256 hmac of the treshold with the API-Key.
+     * 4. QAFOO_PROFILER_TRESHOLD environment variable.
+     *
+     * @param string        $apiKey Application key can be found in "Settings" tab of Profiler UI
+     * @param int           $sampleRate Sample rate in one 100th of a percent (100 = 1%). Defaults to every tenth request
+     * @param array<string> $functionWhitelist List of functions to profile in low-overhead sample mode.
+     *
+     * @return void
+     */
+    public static function start($apiKey, $sampleRate = 1000, array $functionWhitelist = array())
     {
         if (self::$started) {
             return;
@@ -107,7 +136,11 @@ class Profiler
             return;
         }
 
-        self::$profiling = $force ?: self::$profiling = self::decideProfiling();
+        if (is_bool($sampleRate)) {
+            $sampleRate = (int)$sampleRate * 100;
+        }
+
+        self::$profiling = $force ?: self::$profiling = self::decideProfiling($sampleRate);
 
         if (self::$profiling == true) {
             xhprof_enable(); // full profiling mode
@@ -129,13 +162,12 @@ class Profiler
         }
     }
 
-    private static function decideProfiling()
+    private static function decideProfiling($treshold)
     {
         if (isset($_GET["_qprofiler"]) && $_GET["_qprofiler"] === md5(self::$apiKey)) {
             return true;
         }
 
-        $treshold = 100;
         if (isset($_SERVER["HTTP_X_QPTRESHOLD"]) && isset($_SERVER["HTTP_X_QPHASH"])) {
             if (hash_hmac("sha256", $_SERVER["HTTP_X_QPTRESHOLD"], self::$apiKey) === $_SERVER["HTTP_X_QPHASH"]) {
                 $treshold = intval($_SERVER["HTTP_X_QPTRESHOLD"]);
