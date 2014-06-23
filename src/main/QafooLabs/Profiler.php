@@ -114,6 +114,9 @@ class Profiler
      * 3. X-QPTreshold and X-QPHash HTTP Headers. The hash is a sha256 hmac of the treshold with the API-Key.
      * 4. QAFOO_PROFILER_TRESHOLD environment variable.
      *
+     * start() automatically invokes a register shutdown handler that stops and
+     * transmits the profiling data to the local daemon for further processing.
+     *
      * @param string        $apiKey Application key can be found in "Settings" tab of Profiler UI
      * @param int           $sampleRate Sample rate in one 100th of a percent (100 = 1%). Defaults to every tenth request
      * @param array<string> $functionWhitelist List of functions to profile in low-overhead sample mode.
@@ -137,10 +140,10 @@ class Profiler
         }
 
         if (is_bool($sampleRate)) {
-            $sampleRate = (int)$sampleRate * 100;
+            $sampleRate = (int)$sampleRate * 10000;
         }
 
-        self::$profiling = $force ?: self::$profiling = self::decideProfiling($sampleRate);
+        self::$profiling = self::decideProfiling($sampleRate);
 
         if (self::$profiling == true) {
             xhprof_enable(); // full profiling mode
