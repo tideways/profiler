@@ -294,8 +294,8 @@ class Profiler
             return;
         }
 
-        if (self::$error) {
-            // nothing yet, send errors later
+        if (self::$error && self::$operationType !== self::TYPE_DEV) {
+            self::storeError(self::$operationName, self::$error);
             return;
         }
 
@@ -309,6 +309,20 @@ class Profiler
         } else {
             self::storeMeasurement(self::$operationName, intval(round($duration * 1000)), self::$operationType);
         }
+    }
+
+    private static function storeError($operationName, $errorData)
+    {
+        self::storeThroughSocket(
+            array_merge(
+                array(
+                    "op" => $operationName,
+                    "error" => $errorData,
+                    "apiKey" => self::$apiKey,
+                    "cid" => (string)self::$correlationId
+                )
+            )
+        );
     }
 
     private static function storeDevProfile($operationName, $data, $customTimers)
@@ -358,7 +372,20 @@ class Profiler
         if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
             return;
         }
+        self::storeThroughSocket(array(
+            "op" => $operationName,
+            "data" => $data,
+            "custom" => $customTimers,
+            "apiKey" => self::$apiKey,
+            "ot" => $operationType,
+            "mem" => round(memory_get_peak_usage() / 1024),
+            "cid" => (string)self::$correlationId,
+            "s" => $sampling
+        ));
+    }
 
+    private static function storeThroughSocket(array $dataToStore)
+    {
         $old = error_reporting(0);
         $fp = stream_socket_client("unix:///tmp/qprofd.sock");
         error_reporting($old);
@@ -369,18 +396,10 @@ class Profiler
 
         $old = error_reporting(0);
         stream_set_timeout($fp, 0, 10000); // 10 milliseconds max
-        fwrite($fp, json_encode(array(
-            "op" => $operationName,
-            "data" => $data,
-            "custom" => $customTimers,
-            "apiKey" => self::$apiKey,
-            "ot" => $operationType,
-            "mem" => round(memory_get_peak_usage() / 1024),
-            "cid" => (string)self::$correlationId,
-            "s" => $sampling
-        )));
+        fwrite($fp, json_encode($dataToStore));
         fclose($fp);
         error_reporting($old);
+
     }
 
     private static function storeMeasurement($operationName, $duration, $operationType)
