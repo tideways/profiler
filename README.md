@@ -42,7 +42,7 @@ without the daemon.
 \QafooLabs\Profiler::start("api key here");
 
 // now all your application code here
-\QafooLabs\Profiler::setOperationName("controller+action name");
+\QafooLabs\Profiler::setTransactionName("controller+action name");
 ```
 
 Notes:
@@ -51,9 +51,10 @@ Notes:
   shutdown handler will take care of it.
 - If you are using the PECL extension should guard calls to the profiler with `if (class_exists('QafooLabs\Profiler'))`
   to avoid fatal errors when the extension is not installed.
-- Xhprof profiling is sampled at random intervals (every 1% request at the moment)
+- Xhprof profiling is sampled at random intervals (defaults to 10% request at the moment)
   and in the other cases just a wall-time of the full request and memory information
-  is collected.
+  is collected. You can overwrite the sampling rate by passing a value between 0 (0%) and 10000 (100%) as a second
+  argument to `QafooLabs\Profiler::start()`.
 
 ## Custom Timers
 
@@ -62,13 +63,23 @@ You can append custom timing data for example to profile SQL statements:
 ```php
 <?php
 
-$timerId = \QafooLabs\Profiler::startCustomTimer('sql', 'SELECT 1');
-mysql_query('SELECT 1');
+$sql = 'SELECT 1';
+$timerId = \QafooLabs\Profiler::startSqlCustomTimer($sql);
+mysql_query($sql);
 \QafooLabs\Profiler::stopCustomTimer($timerId);
 ```
 
-**NOTE**: Please note that we don't anonymize the custom timer data yet.  For
-now you are responsible yourself to prune this information from sensitive data.
+Using `startSqlCustomTimer` triggers anonymization that replaces all literals
+and numbers with question marks.
+
+You can also time any other type of code in your application:
+
+```php
+<?php
+
+$timerId = \QafooLabs\Profiler::startCustomTimer("solr", "q=foo");
+\QafooLabs\Profiler::stopCustomTimer($timerId);
+```
 
 ## Development Mode
 
@@ -114,7 +125,7 @@ $kernel = AppKernel::createFromBuildProperties();
 $response = $kernel->handle($request);
 $response->send();
 
-\QafooLabs\Profiler::setOperationName($request->attributes->get('_controller', 'notfound'));
+\QafooLabs\Profiler::setTransactionName($request->attributes->get('_controller', 'notfound'));
 
 $kernel->terminate($request, $response);
 ```

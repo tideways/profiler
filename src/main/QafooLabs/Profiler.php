@@ -31,21 +31,30 @@ if (class_exists('QafooLabs\Profiler')) {
  * @example
  *
  *      QafooLabs\Profiler::start($apiKey);
- *      QafooLabs\Profiler::setOperationName("my operation");
+ *      QafooLabs\Profiler::setTransactionName("my tx name");
  *
  * Calling the {@link stop()} method is not necessary as it is
- * called automatically from a shutdown handler.
+ * called automatically from a shutdown handler, if you are timing
+ * worker processes however it is necessary:
  *
- * The method {@link setOperationName} is required, failing to call
+ *      QafooLabs\Profiler::stop();
+ *
+ * The method {@link setTransactionName} is required, failing to call
  * it will result in discarding of the data. You can automatically
  * guess a name using the following snippet:
  *
- *      QafooLabs\Profiler::setOperationName(QafooLabs\Profiler::guessOperationName());
+ *      QafooLabs\Profiler::useRequestAsTransactionName();
  *
- * If you want to collect custom timing data you can use:
+ * If you want to collect custom timing data you can use for SQL:
  *
- *      $id = QafooLabs\Profiler::startCustomTimer("sql", "SELECT 1");
- *      mysql_query("SELECT 1");
+ *      $sql = "SELECT 1";
+ *      $id = QafooLabs\Profiler::startSqlCustomTimer($sql);
+ *      mysql_query($sql);
+ *      QafooLabs\Profiler::stopCustomTimer($id);
+ *
+ * Or for any other timing data:
+ *
+ *      $id = QafooLabs\Profiler::startCustomTimer(('solr', 'q=foo');
  *      QafooLabs\Profiler::stopCustomTimer($id);
  */
 class Profiler
