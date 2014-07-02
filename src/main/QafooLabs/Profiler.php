@@ -393,19 +393,40 @@ class Profiler
         }
 
         if (!$sampling && $data) {
-            self::storeProfile(self::$operationName, $data, self::$customTimers, self::$operationType, $sampling);
+            self::storeProfile(self::$operationName, $data, self::$customTimers, self::$operationType);
         } else {
             $callData = array();
 
             if ($sampling) {
+                // TODO: Can we force Xhprof extension to do this directly?
+                $parsedData = array();
+
+                foreach ($data as $parentChild => $childData) {
+                    if ($parentChild === 'main()') {
+                        continue;
+                    }
+
+                    list ($parent, $child) = explode('==>', $parentChild);
+
+                    if (!isset($parsedData[$child])) {
+                        $parsedData[$child] = array('wt' => 0, 'ct' => 0);
+                    }
+                    $parsedData[$child]['wt'] += $childData['wt'];
+                    $parsedData[$child]['ct'] += $childData['ct'];
+                }
+
                 foreach (self::$callIds as $callId => $fn) {
-                    if (isset($data[$fn])) {
-                        $callData[(string)$callId] = $data[$fn];
+                    if (isset($parsedData[$fn])) {
+                        $callData[(string)$callId] = $parsedData[$fn];
                     }
                 }
+
+                $duration = intval(round($data['main()']['wt'] / 1000));
+            } else {
+                $duration = intval(round($duration * 1000));
             }
 
-            self::storeMeasurement(self::$operationName, intval(round($duration * 1000)), self::$operationType, $callData);
+            self::storeMeasurement(self::$operationName, $duration, self::$operationType, $callData);
         }
     }
 
@@ -427,7 +448,7 @@ class Profiler
         ));
     }
 
-    private static function storeProfile($operationName, $data, $customTimers, $operationType, $sampling)
+    private static function storeProfile($operationName, $data, $customTimers, $operationType)
     {
         if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
             return;
@@ -441,7 +462,6 @@ class Profiler
             "ot" => $operationType,
             "mem" => round(memory_get_peak_usage() / 1024),
             "cid" => (string)self::$correlationId,
-            "s" => $sampling
         ));
     }
 
