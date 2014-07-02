@@ -417,7 +417,7 @@ class Profiler
 
                 foreach (self::$callIds as $callId => $fn) {
                     if (isset($parsedData[$fn])) {
-                        $callData[(string)$callId] = $parsedData[$fn];
+                        $callData["c$callId"] = $parsedData[$fn];
                     }
                 }
 
