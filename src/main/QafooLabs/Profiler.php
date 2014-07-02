@@ -75,6 +75,7 @@ class Profiler
     private static $sampling = false;
     private static $correlationId;
     private static $backend;
+    private static $callIds;
 
     public static function setBackend(Profiler\Backend $backend)
     {
@@ -132,13 +133,13 @@ class Profiler
      * start() automatically invokes a register shutdown handler that stops and
      * transmits the profiling data to the local daemon for further processing.
      *
-     * @param string        $apiKey Application key can be found in "Settings" tab of Profiler UI
-     * @param int           $sampleRate Sample rate in one 100th of a percent (100 = 1%). Defaults to every tenth request
-     * @param array<string> $functionWhitelist List of functions to profile in low-overhead sample mode.
+     * @param string            $apiKey Application key can be found in "Settings" tab of Profiler UI
+     * @param int               $sampleRate Sample rate in one 100th of a percent (100 = 1%). Defaults to every tenth request
+     * @param array<string,int> $callIds Key-value pairs of functions to call-id for low-overhead sample mode.
      *
      * @return void
      */
-    public static function start($apiKey, $sampleRate = 1000, array $functionWhitelist = array())
+    public static function start($apiKey, $sampleRate = 1000, array $callIds = array())
     {
         if (self::$started) {
             return;
@@ -170,13 +171,14 @@ class Profiler
             return;
         }
 
-        if (!$functionWhitelist && strpos($apiKey, '..') === false && file_exists('/etc/qafooprofiler/' . $apiKey . '.php')) {
-            $functionWhitelist = require_once '/etc/qafooprofiler/' . $apiKey . '.php';
+        if (!$callIds && strpos($apiKey, '..') === false && file_exists('/etc/qafooprofiler/' . $apiKey . '.ini')) {
+            $callIds = parse_ini_file('/etc/qafooprofiler/' . $apiKey . '.ini');
         }
 
-        if ($functionWhitelist) {
-            xhprof_enable(0, array('functions' => $functionWhitelist));
+        if ($callIds) {
+            xhprof_enable(0, array('functions' => array_values($callIds)));
             self::$sampling = true;
+            self::$callIds = $callIds;
         }
     }
 
@@ -241,6 +243,7 @@ class Profiler
         self::$error = false;
         self::$operationType = $type;
         self::$started = microtime(true);
+        self::$callIds = null;
     }
 
     /**
@@ -389,10 +392,20 @@ class Profiler
             return;
         }
 
-        if ($data) {
+        if (!$sampling && $data) {
             self::storeProfile(self::$operationName, $data, self::$customTimers, self::$operationType, $sampling);
         } else {
-            self::storeMeasurement(self::$operationName, intval(round($duration * 1000)), self::$operationType);
+            $callData = array();
+
+            if ($sampling) {
+                foreach (self::$callIds as $callId => $fn) {
+                    if (isset($data[$fn])) {
+                        $callData[(string)$callId] = $data[$fn];
+                    }
+                }
+            }
+
+            self::storeMeasurement(self::$operationName, intval(round($duration * 1000)), self::$operationType, $callData);
         }
     }
 
@@ -432,14 +445,15 @@ class Profiler
         ));
     }
 
-    private static function storeMeasurement($operationName, $duration, $operationType)
+    private static function storeMeasurement($operationName, $duration, $operationType, array $callData)
     {
         self::$backend->storeMeasurement(array(
             "op" => $operationName,
             "ot" => $operationType,
             "wt" => $duration,
             "mem" => round(memory_get_peak_usage() / 1024),
-            "apiKey" => self::$apiKey
+            "apiKey" => self::$apiKey,
+            "c" => $callData
         ));
     }
 
