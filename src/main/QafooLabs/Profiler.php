@@ -31,21 +31,30 @@ if (class_exists('QafooLabs\Profiler')) {
  * @example
  *
  *      QafooLabs\Profiler::start($apiKey);
- *      QafooLabs\Profiler::setOperationName("my operation");
+ *      QafooLabs\Profiler::setTransactionName("my tx name");
  *
  * Calling the {@link stop()} method is not necessary as it is
- * called automatically from a shutdown handler.
+ * called automatically from a shutdown handler, if you are timing
+ * worker processes however it is necessary:
  *
- * The method {@link setOperationName} is required, failing to call
+ *      QafooLabs\Profiler::stop();
+ *
+ * The method {@link setTransactionName} is required, failing to call
  * it will result in discarding of the data. You can automatically
  * guess a name using the following snippet:
  *
- *      QafooLabs\Profiler::setOperationName(QafooLabs\Profiler::guessOperationName());
+ *      QafooLabs\Profiler::useRequestAsTransactionName();
  *
- * If you want to collect custom timing data you can use:
+ * If you want to collect custom timing data you can use for SQL:
  *
- *      $id = QafooLabs\Profiler::startCustomTimer("sql", "SELECT 1");
- *      mysql_query("SELECT 1");
+ *      $sql = "SELECT 1";
+ *      $id = QafooLabs\Profiler::startSqlCustomTimer($sql);
+ *      mysql_query($sql);
+ *      QafooLabs\Profiler::stopCustomTimer($id);
+ *
+ * Or for any other timing data:
+ *
+ *      $id = QafooLabs\Profiler::startCustomTimer(('solr', 'q=foo');
  *      QafooLabs\Profiler::stopCustomTimer($id);
  */
 class Profiler
@@ -65,6 +74,13 @@ class Profiler
     private static $profiling = false;
     private static $sampling = false;
     private static $correlationId;
+    private static $backend;
+    private static $callIds;
+
+    public static function setBackend(Profiler\Backend $backend)
+    {
+        self::$backend = $backend;
+    }
 
     /**
      * Start profiling in development mode.
@@ -117,13 +133,13 @@ class Profiler
      * start() automatically invokes a register shutdown handler that stops and
      * transmits the profiling data to the local daemon for further processing.
      *
-     * @param string        $apiKey Application key can be found in "Settings" tab of Profiler UI
-     * @param int           $sampleRate Sample rate in one 100th of a percent (100 = 1%). Defaults to every tenth request
-     * @param array<string> $functionWhitelist List of functions to profile in low-overhead sample mode.
+     * @param string            $apiKey Application key can be found in "Settings" tab of Profiler UI
+     * @param int               $sampleRate Sample rate in one 100th of a percent (100 = 1%). Defaults to every tenth request
+     * @param array<string,int> $callIds Key-value pairs of functions to call-id for low-overhead sample mode.
      *
      * @return void
      */
-    public static function start($apiKey, $sampleRate = 1000, array $functionWhitelist = array())
+    public static function start($apiKey, $sampleRate = 1000, array $callIds = array())
     {
         if (self::$started) {
             return;
@@ -155,13 +171,14 @@ class Profiler
             return;
         }
 
-        if (!$functionWhitelist && strpos($apiKey, '..') === false && file_exists('/etc/qafooprofiler/' . $apiKey . '.php')) {
-            $functionWhitelist = require_once '/etc/qafooprofiler/' . $apiKey . '.php';
+        if (!$callIds && strpos($apiKey, '..') === false && file_exists('/etc/qafooprofiler/' . $apiKey . '.ini')) {
+            $callIds = parse_ini_file('/etc/qafooprofiler/' . $apiKey . '.ini');
         }
 
-        if ($functionWhitelist) {
-            xhprof_enable(0, array('functions' => $functionWhitelist));
+        if ($callIds) {
+            xhprof_enable(0, array('functions' => array_values($callIds)));
             self::$sampling = true;
+            self::$callIds = $callIds;
         }
     }
 
@@ -213,6 +230,10 @@ class Profiler
             self::$shutdownRegistered = true;
         }
 
+        if (self::$backend === null) {
+            self::$backend = new Profiler\NetworkBackend();
+        }
+
         self::$profiling = false;
         self::$sampling = false;
         self::$apiKey = $apiKey;
@@ -222,6 +243,27 @@ class Profiler
         self::$error = false;
         self::$operationType = $type;
         self::$started = microtime(true);
+        self::$callIds = null;
+    }
+
+    /**
+     * Return transaction hash for real user monitoring.
+     *
+     * @return string
+     */
+    public static function getTransactionHash()
+    {
+        return substr(sha1(self::$operationName), 0, 12);
+    }
+
+    /**
+     * Return api hash used for real user monitoring.
+     *
+     * @return string
+     */
+    public static function getApiHash()
+    {
+        return sha1(self::$apiKey);
     }
 
     public static function setCorrelationId($id)
@@ -244,27 +286,73 @@ class Profiler
         self::$operationName = $name;
     }
 
-    public static function startCustomTimer($group, $identifier)
+    /**
+     * Start a custom timer for SQL execution with the give SQL query.
+     *
+     * Returns the timer id to be passed to {@link stopCustomTimer()}
+     * for completing the timing process. Queries passed to this
+     * method are anonymized using {@link SqlAnonymizer::anonymize()}.
+     *
+     * @param string $query
+     * @return integer|bool
+     */
+    public static function startSqlCustomTimer($query)
+    {
+        return self::startCustomTimer('sql', Profiler\SqlAnonymizer::anonymize($query));
+    }
+
+    /**
+     * Start a custom timer for the given group and using the given description.
+     *
+     * Data passed as description it not anonymized. It is your responsibility to
+     * strip the data of any input that might cause private data to be sent to
+     * Qafoo Profiler service.
+     *
+     * @param string $group
+     * @param string $description
+     * @return integer|bool
+     */
+    public static function startCustomTimer($group, $description)
     {
         if (self::$started == false || self::$profiling == false) {
-            return;
+            return false;
         }
 
-        self::$customTimers[self::$customTimerCount] = array("s" => microtime(true), "id" => $identifier, "group" => $group);
+        self::$customTimers[self::$customTimerCount] = array("s" => microtime(true), "id" => $description, "group" => $group);
         self::$customTimerCount++;
 
         return self::$customTimerCount - 1;
     }
 
+    /**
+     * Stop the custom timer with given id.
+     *
+     * @return bool
+     */
     public static function stopCustomTimer($id)
     {
-        if (!isset(self::$customTimers[$id]) || isset(self::$customTimers[$id]["wt"])) {
+        if ($id === false || !isset(self::$customTimers[$id]) || isset(self::$customTimers[$id]["wt"])) {
             return false;
         }
 
         self::$customTimers[$id]["wt"] = intval(round((microtime(true) - self::$customTimers[$id]["s"]) * 1000000));
         unset(self::$customTimers[$id]["s"]);
         return true;
+    }
+
+    /**
+     * Return all current custom timers.
+     *
+     * @return array
+     */
+    public static function getCustomTimers()
+    {
+        return self::$customTimers;
+    }
+
+    public static function isStarted()
+    {
+        return self::$started !== false;
     }
 
     public static function isProfiling()
@@ -304,16 +392,47 @@ class Profiler
             return;
         }
 
-        if ($data) {
-            self::storeProfile(self::$operationName, $data, self::$customTimers, self::$operationType, $sampling);
+        if (!$sampling && $data) {
+            self::storeProfile(self::$operationName, $data, self::$customTimers, self::$operationType);
         } else {
-            self::storeMeasurement(self::$operationName, intval(round($duration * 1000)), self::$operationType);
+            $callData = array();
+
+            if ($sampling) {
+                // TODO: Can we force Xhprof extension to do this directly?
+                $parsedData = array();
+
+                foreach ($data as $parentChild => $childData) {
+                    if ($parentChild === 'main()') {
+                        continue;
+                    }
+
+                    list ($parent, $child) = explode('==>', $parentChild);
+
+                    if (!isset($parsedData[$child])) {
+                        $parsedData[$child] = array('wt' => 0, 'ct' => 0);
+                    }
+                    $parsedData[$child]['wt'] += $childData['wt'];
+                    $parsedData[$child]['ct'] += $childData['ct'];
+                }
+
+                foreach (self::$callIds as $callId => $fn) {
+                    if (isset($parsedData[$fn])) {
+                        $callData["c$callId"] = $parsedData[$fn];
+                    }
+                }
+
+                $duration = intval(round($data['main()']['wt'] / 1000));
+            } else {
+                $duration = intval(round($duration * 1000));
+            }
+
+            self::storeMeasurement(self::$operationName, $duration, self::$operationType, $callData);
         }
     }
 
     private static function storeError($operationName, $errorData)
     {
-        self::storeThroughSocket(
+        self::$backend->storeError(
             array_merge(
                 array(
                     "op" => $operationName,
@@ -331,23 +450,7 @@ class Profiler
             return;
         }
 
-        if (function_exists("curl_init") === false) {
-            return;
-        }
-
-        $ch = curl_init("https://profiler.qafoolabs.com/api/profile/create");
-        curl_setopt($ch, CURLOPT_TIMEOUT, 2);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-            curl_setopt($ch, CURLOPT_CAINFO, "/etc/ssl/certs/ca-certificates.crt");
-        } else {
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        }
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array(
+        self::$backend->storeDevProfile(array(
             "apiKey" => self::$apiKey,
             "op" => $operationName,
             "ot" => self::TYPE_DEV,
@@ -356,23 +459,15 @@ class Profiler
             "data" => $data,
             "custom" => $customTimers,
             "server" => gethostname(),
-        )));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            "Content-Type: application/json",
-            "UserAgent: QafooLabs Profiler Collector DevMode"
-        ]);
-
-        if (curl_exec($ch) === false) {
-            throw new \RuntimeException("Failure while pushing profiling data to Qafoo Profiler: " . curl_error($ch));
-        }
+        ));
     }
 
-    private static function storeProfile($operationName, $data, $customTimers, $operationType, $sampling)
+    private static function storeProfile($operationName, $data, $customTimers, $operationType)
     {
         if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
             return;
         }
-        self::storeThroughSocket(array(
+        self::$backend->storeProfile(array(
             "op" => $operationName,
             "data" => $data,
             "custom" => $customTimers,
@@ -380,49 +475,19 @@ class Profiler
             "ot" => $operationType,
             "mem" => round(memory_get_peak_usage() / 1024),
             "cid" => (string)self::$correlationId,
-            "s" => $sampling
         ));
     }
 
-    private static function storeThroughSocket(array $dataToStore)
+    private static function storeMeasurement($operationName, $duration, $operationType, array $callData)
     {
-        $old = error_reporting(0);
-        $fp = stream_socket_client("unix:///tmp/qprofd.sock");
-        error_reporting($old);
-
-        if ($fp == false) {
-            return;
-        }
-
-        $old = error_reporting(0);
-        stream_set_timeout($fp, 0, 10000); // 10 milliseconds max
-        fwrite($fp, json_encode($dataToStore));
-        fclose($fp);
-        error_reporting($old);
-
-    }
-
-    private static function storeMeasurement($operationName, $duration, $operationType)
-    {
-        $old = error_reporting(0);
-        $fp = stream_socket_client("udp://127.0.0.1:8135");
-        error_reporting($old);
-
-        if ($fp == false) {
-            return;
-        }
-
-        $old = error_reporting(0);
-        stream_set_timeout($fp, 0, 200);
-        fwrite($fp, json_encode(array(
+        self::$backend->storeMeasurement(array(
             "op" => $operationName,
             "ot" => $operationType,
             "wt" => $duration,
             "mem" => round(memory_get_peak_usage() / 1024),
-            "apiKey" => self::$apiKey
-        )));
-        fclose($fp);
-        error_reporting($old);
+            "apiKey" => self::$apiKey,
+            "c" => $callData
+        ));
     }
 
     /**
