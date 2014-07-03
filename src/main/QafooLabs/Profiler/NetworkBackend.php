@@ -22,7 +22,7 @@ class NetworkBackend implements Backend
         }
 
         $ch = curl_init("https://profiler.qafoolabs.com/api/profile/create");
-        curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
@@ -40,7 +40,11 @@ class NetworkBackend implements Backend
         ]);
 
         if (curl_exec($ch) === false) {
-            throw new \RuntimeException("Failure while pushing profiling data to Qafoo Profiler: " . curl_error($ch));
+            $msg = curl_error($ch);
+
+            if (strpos($msg, 'Operation timed out') === false) {
+                throw new \RuntimeException("Failure while pushing profiling data to Qafoo Profiler: " . $msg);
+            }
         }
     }
 
