@@ -433,13 +433,11 @@ class Profiler
     private static function storeError($operationName, $errorData)
     {
         self::$backend->storeError(
-            array_merge(
-                array(
-                    "op" => $operationName,
-                    "error" => $errorData,
-                    "apiKey" => self::$apiKey,
-                    "cid" => (string)self::$correlationId
-                )
+            array(
+                "op" => $operationName,
+                "error" => $errorData,
+                "apiKey" => self::$apiKey,
+                "cid" => (string)self::$correlationId
             )
         );
     }
