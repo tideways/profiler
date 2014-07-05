@@ -378,12 +378,12 @@ class Profiler
         self::$profiling = false;
         self::$sampling = false;
 
-        if (!self::$operationName) {
+        if (self::$error && self::$operationType !== self::TYPE_DEV) {
+            self::storeError(self::$operationName, self::$error);
             return;
         }
 
-        if (self::$error && self::$operationType !== self::TYPE_DEV) {
-            self::storeError(self::$operationName, self::$error);
+        if (!self::$operationName) {
             return;
         }
 
