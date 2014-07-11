@@ -372,14 +372,14 @@ class Profiler
         if (self::$profiling || self::$sampling) {
             $data = xhprof_disable();
         }
-        $duration = microtime(true) - self::$started;
+        $duration = intval(round(microtime(true) - self::$started));
 
         self::$started = false;
         self::$profiling = false;
         self::$sampling = false;
 
         if (self::$error && self::$operationType !== self::TYPE_DEV) {
-            self::storeError(self::$operationName, self::$error);
+            self::storeError(self::$operationName, self::$error, $duration);
             return;
         }
 
@@ -422,21 +422,20 @@ class Profiler
                 }
 
                 $duration = intval(round($data['main()']['wt'] / 1000));
-            } else {
-                $duration = intval(round($duration * 1000));
             }
 
             self::storeMeasurement(self::$operationName, $duration, self::$operationType, $callData);
         }
     }
 
-    private static function storeError($operationName, $errorData)
+    private static function storeError($operationName, $errorData, $duration)
     {
         self::$backend->storeError(
             array(
-                "op" => $operationName,
+                "op" => ($operationName === null ? '__unknown__' : $operationName),
                 "error" => $errorData,
                 "apiKey" => self::$apiKey,
+                "wt" => $duration,
                 "cid" => (string)self::$correlationId
             )
         );
