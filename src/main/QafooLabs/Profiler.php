@@ -360,6 +360,9 @@ class Profiler
         return self::$profiling;
     }
 
+    /**
+     * Stop all profiling actions and submit collected data.
+     */
     public static function stop()
     {
         if (self::$started == false) {
