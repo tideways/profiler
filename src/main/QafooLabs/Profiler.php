@@ -528,6 +528,8 @@ class Profiler
             $type = E_USER_ERROR;
         }
 
+        $message = Profiler\SqlAnonymizer::anonymize($message);
+
         self::$error = array("message" => $message, "file" => $file, "line" => $line, "type" => $type);
     }
 

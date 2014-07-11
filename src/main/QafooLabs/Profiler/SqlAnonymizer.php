@@ -24,6 +24,8 @@ namespace QafooLabs\Profiler;
  *
  * If your library such as Doctrine DBAL only uses prepared statements anyways
  * and you don't put user input into SQL yourself, then you can skip this step.
+ *
+ * @TODO: Rename to something more meaningful, since it also anonymizes messages.
  */
 class SqlAnonymizer
 {
