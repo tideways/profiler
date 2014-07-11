@@ -32,7 +32,7 @@ class SqlAnonymizer
     /**
      * @var string
      */
-    const SPLIT_NUMBERS_AND_QUOTED_STRINGS = '(("[^"]+"|\'[^\']+\'|[0-9.]+))';
+    const SPLIT_NUMBERS_AND_QUOTED_STRINGS = '(("[^"]+"|\'[^\']+\'|([0-9]*\.)?[0-9]+))';
 
     /**
      * Anonymize SQL string.
