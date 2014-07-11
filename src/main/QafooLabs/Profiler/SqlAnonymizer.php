@@ -45,6 +45,6 @@ class SqlAnonymizer
      */
     static public function anonymize($sql)
     {
-        return implode('?', preg_split(self::SPLIT_NUMBERS_AND_QUOTED_STRINGS, $sql));
+        return preg_replace(self::SPLIT_NUMBERS_AND_QUOTED_STRINGS, '?', $sql);
     }
 }
