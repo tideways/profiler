@@ -13,6 +13,7 @@ class SqlAnonymizerTest extends \PHPUnit_Framework_TestCase
             array('SELECT "foo", "bar", "baz" FROM bar', 'SELECT ?, ?, ? FROM bar'),
             array('SELECT "foo", \'bar\', 1234, 17.45 FROM baz', 'SELECT ?, ?, ?, ? FROM baz'),
             array('SELECT "foo" FROM bar WHERE "baz" = 1', 'SELECT ? FROM bar WHERE ? = ?'),
+            array('No route found for "GET /bundles/.../exception.css" (from "https://example.com/error")', 'No route found for ? (from ?)'),
         );
     }
 
