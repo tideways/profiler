@@ -77,7 +77,7 @@ class NetworkBackend implements Backend
 
         $old = error_reporting(0);
         stream_set_timeout($fp, 0, 200);
-        fwrite($fp, json_encode($data));
+        fwrite($fp, json_encode($data, JSON_FORCE_OBJECT));
         fclose($fp);
         error_reporting($old);
     }
