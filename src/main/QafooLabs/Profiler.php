@@ -211,7 +211,7 @@ class Profiler
      *
      * @return void
      */
-    public function ignoreTransaction()
+    public static function ignoreTransaction()
     {
         if (self::$started && (self::$profiling || self::$sampling)) {
             self::$profiling = false;
