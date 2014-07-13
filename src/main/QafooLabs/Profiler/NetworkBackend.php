@@ -22,7 +22,8 @@ class NetworkBackend implements Backend
         }
 
         $ch = curl_init("https://profiler.qafoolabs.com/api/profile/create");
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 3);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
