@@ -21,11 +21,28 @@ class CurlBackend implements Backend
             return;
         }
 
+        $data['server'] = gethostname();
+
         $this->request("https://profiler.qafoolabs.com/api/profile/create", $data);
     }
 
     public function storeMeasurement(array $data)
     {
+        $this->request("https://profiler.qafoolabs.com/api/performance", array(
+            'server' => gethostname(),
+            'time' => time(),
+            'apps' => array(
+                $data['apiKey'] => array(
+                    $data['op'] = array(
+                        array(
+                            'wt' => $data['wt'],
+                            'mem' => $data['mem'],
+                            'c' => $data['c'],
+                        )
+                    )
+                )
+            )
+        ));
     }
 
     public function storeError(array $data)

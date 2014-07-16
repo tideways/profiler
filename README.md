@@ -57,10 +57,11 @@ Notes:
 
 ## Configuration
 
-For every application on the server you can create a file `/etc/qafooprofiler/$apiKey.ini`:
+For every application on the server you can optionally create a file `/etc/qafooprofiler/$apiKey.ini`:
 
     [general]
     sample_rate=20
+    enabled=1
 
     [calls]
     1=mysql_connect

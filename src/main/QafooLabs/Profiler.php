@@ -137,18 +137,17 @@ class Profiler
         }
 
         $config = self::loadConfig($apiKey);
-        $sampleRate = isset($config['general']['sample_rate'])
-            ? $config['general']['sample_rate']
-            : $sampleRate;
+
+        if (isset($config['general']['enabled']) && !$config['general']['enabled']) {
+            return;
+        }
+
+        $sampleRate = isset($config['general']['sample_rate']) ? $config['general']['sample_rate'] : $sampleRate;
 
         self::init(php_sapi_name() == "cli" ? self::TYPE_WORKER : self::TYPE_WEB, $apiKey);
 
         if (function_exists("xhprof_enable") == false) {
             return;
-        }
-
-        if (is_bool($sampleRate)) {
-            $sampleRate = (int)$sampleRate * 100;
         }
 
         self::$profiling = self::decideProfiling($sampleRate);
@@ -175,6 +174,10 @@ class Profiler
         $config = array();
         if (strpos($apiKey, '..') === false && file_exists('/etc/qafooprofiler/' . $apiKey . '.ini')) {
             $config = parse_ini_file('/etc/qafooprofiler/' . $apiKey . '.ini', true);
+        }
+
+        if (isset($config['general']['backend']) && $config['general']['backend'] === 'curl') {
+            self::setBackend(new Profiler\CurlBackend());
         }
 
         return $config;
