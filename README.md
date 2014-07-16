@@ -1,16 +1,14 @@
 # QafooLabs Profiler Client
 
-PHP client Library for the QafooLabs Profiler to use in your projects
-if you dont want or cannot use the pecl extension.
+PHP client Library for the QafooLabs Profiler.
+
+Sign up for beta: https://profiler.qafoolabs.com
 
 ## Installation
 
-There are three ways to install the Profiler Client:
+There are two ways to install the Profiler Client:
 
-1. Use the QafooLabs Profiler PECL Extension
-   Download the `qafooprofiler.so` for your architecture from the Downloads page
-   put it into `/usr/lib/php5/<yourapiversion>/qafooprofiler.so` and integrate in php.ini
-2. Use Composer to install this library with:
+1. Use Composer to install this library with:
 
    ```json
    {
@@ -18,7 +16,7 @@ There are three ways to install the Profiler Client:
    }
    ```
 
-3. Copy the `src/main/QafooLabs/Profiler.php` file into your project and call it via `require`.
+2. Download the single file from Github downloads
 
 The profiler class is intentially monolothic and static to allow easy
 integration in your projects.
