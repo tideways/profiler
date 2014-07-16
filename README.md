@@ -51,9 +51,9 @@ Notes:
   shutdown handler will take care of it.
 - If you are using the PECL extension should guard calls to the profiler with `if (class_exists('QafooLabs\Profiler'))`
   to avoid fatal errors when the extension is not installed.
-- Xhprof profiling is sampled at random intervals (defaults to 10% request at the moment)
+- Xhprof profiling is sampled at random intervals (defaults to 20% request at the moment)
   and in the other cases just a wall-time of the full request and memory information
-  is collected. You can overwrite the sampling rate by passing a value between 0 (0%) and 10000 (100%) as a second
+  is collected. You can overwrite the sampling rate by passing a value between 0 (0%) and 100 (100%) as a second
   argument to `QafooLabs\Profiler::start()`.
 
 ## Custom Timers

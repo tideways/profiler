@@ -134,12 +134,12 @@ class Profiler
      * transmits the profiling data to the local daemon for further processing.
      *
      * @param string            $apiKey Application key can be found in "Settings" tab of Profiler UI
-     * @param int               $sampleRate Sample rate in one 100th of a percent (100 = 1%). Defaults to every tenth request
+     * @param int               $sampleRate Sample rate in full percent (1= 1%, 20 = 20%). Defaults to every fifth request
      * @param array<string,int> $callIds Key-value pairs of functions to call-id for low-overhead sample mode.
      *
      * @return void
      */
-    public static function start($apiKey, $sampleRate = 1000, array $callIds = array())
+    public static function start($apiKey, $sampleRate = 20, array $callIds = array())
     {
         if (self::$started) {
             return;
@@ -156,7 +156,7 @@ class Profiler
         }
 
         if (is_bool($sampleRate)) {
-            $sampleRate = (int)$sampleRate * 10000;
+            $sampleRate = (int)$sampleRate * 100;
         }
 
         self::$profiling = self::decideProfiling($sampleRate);
@@ -201,7 +201,7 @@ class Profiler
             $treshold = intval($_SERVER["QAFOO_PROFILER_TRESHOLD"]);
         }
 
-        $rand = rand(1, 10000);
+        $rand = rand(1, 100);
 
         return $rand <= $treshold;
     }
