@@ -98,6 +98,17 @@ $timerId = \QafooLabs\Profiler::startCustomTimer("solr", "q=foo");
 \QafooLabs\Profiler::stopCustomTimer($timerId);
 ```
 
+## Custom Variables
+
+You can add custom variables to every full profiling trace:
+
+```php
+<?php
+
+\QafooLabs\Profiler::setCustomVariable('url', $_SERVER['HTTP_HOST'] . '/' . $_SERVER['REQUEST_URI']);
+\QafooLabs\Profiler::setCustomVariable('mysql_thread_id', mysql_thread_id());
+```
+
 ## Development Mode
 
 If you want to force collecting profiles during development and send them to
@@ -109,9 +120,10 @@ the Qafoo Profiler you can do so by using the `startDevelopment` method:
 \QafooLabs\Profiler::startDevelopment($apiKey);
 ```
 
-Please note that this is very slow in production as the overhead of HTTP is present
-in every request. We are also rate-limiting our API endpoint and sending too many
-profiles will get you blocked.
+Please note that this is very slow as the overhead of HTTP is present in every
+request. It is not recommended to use this setting in production! We are also
+rate-limiting our API endpoint and sending too many profiles will get you
+blocked, the daemon throttles request automatically.
 
 ## Correlation Ids
 
