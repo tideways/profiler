@@ -6,7 +6,7 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
 {
     public function testStartStopProfile()
     {
-        $alwaysSample = 10000;
+        $alwaysSample = 100;
 
         $backend = self::createBackend();
         $backend->expects($this->once())->method('storeProfile');
@@ -61,7 +61,7 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
 
     public function testCustomTimers()
     {
-        $alwaysSample = 10000;
+        $alwaysSample = 100;
 
         $backend = self::createBackend();
 
@@ -82,6 +82,20 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('solr', $timers[1]['group']);
         $this->assertEquals('SELECT ? FROM ?', $timers[0]['id']);
         $this->assertEquals('foo=bar', $timers[1]['id']);
+    }
+
+    public function testCustomVariables()
+    {
+        $alwaysSample = 100;
+
+        $backend = self::createBackend();
+
+        \QafooLabs\Profiler::start('foo', $alwaysSample);
+        \QafooLabs\Profiler::setTransactionName(__CLASS__ . '::' . __METHOD__);
+
+        \QafooLabs\Profiler::setCustomVariable("foo", "bar");
+
+        $this->assertEquals('bar', \QafooLabs\Profiler::getCustomVariable("foo"));
     }
 
     private function createBackend()

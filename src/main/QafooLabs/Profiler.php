@@ -54,7 +54,7 @@ if (class_exists('QafooLabs\Profiler')) {
  *
  * Or for any other timing data:
  *
- *      $id = QafooLabs\Profiler::startCustomTimer(('solr', 'q=foo');
+ *      $id = QafooLabs\Profiler::startCustomTimer('solr', 'q=foo');
  *      QafooLabs\Profiler::stopCustomTimer($id);
  */
 class Profiler
@@ -67,6 +67,7 @@ class Profiler
     private static $started = false;
     private static $shutdownRegistered = false;
     private static $operationName;
+    private static $customVars;
     private static $customTimers;
     private static $customTimerCount = 0;
     private static $operationType;
@@ -247,6 +248,7 @@ class Profiler
         self::$profiling = false;
         self::$sampling = false;
         self::$apiKey = $apiKey;
+        self::$customVars = array();
         self::$customTimers = array();
         self::$customTimerCount = 0;
         self::$operationName = null;
@@ -371,6 +373,40 @@ class Profiler
     }
 
     /**
+     * Add a custom variable to this profile.
+     *
+     * Examples are the Request URL, UserId, Correlation Ids and more.
+     *
+     * Please do *NOT* set private data in custom variables as this
+     * data is not encrypted on our servers.
+     *
+     * Only accepts scalar values.
+     *
+     * The key 'url' is a magic value and should contain the request
+     * url if you want to transmit it. The Profiler UI will specially
+     * display it.
+     *
+     * @param string $name
+     * @param scalar $value
+     * @return void
+     */
+    public static function setCustomVariable($name, $value)
+    {
+        if (!self::$profiling || !is_scalar($value)) {
+            return;
+        }
+
+        self::$customVars[$name] = $value;
+    }
+
+    public static function getCustomVariable($name)
+    {
+        return isset(self::$customVars[$name])
+            ? self::$customVars[$name]
+            : null;
+    }
+
+    /**
      * Stop all profiling actions and submit collected data.
      */
     public static function stop()
@@ -471,6 +507,7 @@ class Profiler
             "op" => $operationName,
             "data" => $data,
             "custom" => $customTimers,
+            "vars" => self::$customVars,
             "apiKey" => self::$apiKey,
             "ot" => $operationType,
             "mem" => round(memory_get_peak_usage() / 1024),
