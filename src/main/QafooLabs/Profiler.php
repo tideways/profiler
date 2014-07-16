@@ -61,7 +61,6 @@ class Profiler
 {
     const TYPE_WEB = 1;
     const TYPE_WORKER = 2;
-    const TYPE_DEV = 3;
 
     private static $apiKey;
     private static $started = false;
@@ -90,22 +89,8 @@ class Profiler
      */
     public static function startDevelopment($apiKey, $flags = 0, array $options = array())
     {
-        if (self::$started) {
-            return;
-        }
-
-        if (strlen($apiKey) === 0) {
-            return;
-        }
-
-        self::init(self::TYPE_DEV, $apiKey);
-        self::$profiling = function_exists("xhprof_enable");
-
-        if (self::$profiling == false) {
-            return;
-        }
-
-        xhprof_enable($flags, $options);
+        self::setBackend(new Profiler\CurlBackend());
+        self::start($apiKey, 100, $flags, $options);
     }
 
     /**
@@ -136,10 +121,12 @@ class Profiler
      *
      * @param string            $apiKey Application key can be found in "Settings" tab of Profiler UI
      * @param int               $sampleRate Sample rate in full percent (1= 1%, 20 = 20%). Defaults to every fifth request
+     * @param int               $flags XHProf option flags.
+     * @param array             $options XHProf options.
      *
      * @return void
      */
-    public static function start($apiKey, $sampleRate = 20)
+    public static function start($apiKey, $sampleRate = 20, $flags = 0, array $options = array())
     {
         if (self::$started) {
             return;
@@ -167,7 +154,7 @@ class Profiler
         self::$profiling = self::decideProfiling($sampleRate);
 
         if (self::$profiling == true) {
-            xhprof_enable(); // full profiling mode
+            xhprof_enable($flags, $options); // full profiling mode
             return;
         }
 
@@ -436,11 +423,6 @@ class Profiler
             return;
         }
 
-        if (self::$operationType === self::TYPE_DEV) {
-            self::storeDevProfile(self::$operationName, $data, self::$customTimers);
-            return;
-        }
-
         if (!$sampling && $data) {
             self::storeProfile(self::$operationName, $data, self::$customTimers, self::$operationType);
         } else {
@@ -477,24 +459,6 @@ class Profiler
 
             self::storeMeasurement(self::$operationName, $duration, self::$operationType, $callData);
         }
-    }
-
-    private static function storeDevProfile($operationName, $data, $customTimers)
-    {
-        if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
-            return;
-        }
-
-        self::$backend->storeDevProfile(array(
-            "apiKey" => self::$apiKey,
-            "op" => $operationName,
-            "ot" => self::TYPE_DEV,
-            "cid" => (string)self::$correlationId,
-            "mem" => round(memory_get_peak_usage() / 1024),
-            "data" => $data,
-            "custom" => $customTimers,
-            "server" => gethostname(),
-        ));
     }
 
     private static function storeProfile($operationName, $data, $customTimers, $operationType)

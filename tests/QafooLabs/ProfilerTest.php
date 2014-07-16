@@ -23,23 +23,6 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse(\QafooLabs\Profiler::isStarted());
     }
 
-    public function testStartDevelopmentProfile()
-    {
-        $backend = self::createBackend();
-        $backend->expects($this->once())->method('storeDevProfile');
-
-        \QafooLabs\Profiler::startDevelopment('foo');
-        \QafooLabs\Profiler::setTransactionName(__CLASS__ . '::' . __METHOD__);
-
-        $this->assertTrue(\QafooLabs\Profiler::isProfiling());
-        $this->assertTrue(\QafooLabs\Profiler::isStarted());
-
-        \QafooLabs\Profiler::stop();
-
-        $this->assertFalse(\QafooLabs\Profiler::isProfiling());
-        $this->assertFalse(\QafooLabs\Profiler::isStarted());
-    }
-
     public function testStartStopMeasurement()
     {
         $alwaysSample = 0;
