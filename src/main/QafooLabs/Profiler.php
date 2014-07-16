@@ -143,6 +143,7 @@ class Profiler
         }
 
         $sampleRate = isset($config['general']['sample_rate']) ? $config['general']['sample_rate'] : $sampleRate;
+        $flags = isset($config['general']['xhprof_flags']) ? $config['general']['xhprof_flags'] : $flags;
 
         self::init(php_sapi_name() == "cli" ? self::TYPE_WORKER : self::TYPE_WEB, $apiKey);
 

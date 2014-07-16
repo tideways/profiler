@@ -57,11 +57,14 @@ Notes:
 
 ## Configuration
 
-For every application on the server you can optionally create a file `/etc/qafooprofiler/$apiKey.ini`:
+For every application on the server you can optionally create a file `/etc/qafooprofiler/$apiKey.ini`.
+These are the defaults:
 
     [general]
     sample_rate=20
     enabled=1
+    backend=network ; or "curl" if on development server with no Daemon
+    xhprof_flags=0
 
     [calls]
     1=mysql_connect
