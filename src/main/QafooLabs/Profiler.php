@@ -135,11 +135,10 @@ class Profiler
      *
      * @param string            $apiKey Application key can be found in "Settings" tab of Profiler UI
      * @param int               $sampleRate Sample rate in full percent (1= 1%, 20 = 20%). Defaults to every fifth request
-     * @param array<string,int> $callIds Key-value pairs of functions to call-id for low-overhead sample mode.
      *
      * @return void
      */
-    public static function start($apiKey, $sampleRate = 20, array $callIds = array())
+    public static function start($apiKey, $sampleRate = 20)
     {
         if (self::$started) {
             return;
@@ -148,6 +147,11 @@ class Profiler
         if (strlen($apiKey) === 0) {
             return;
         }
+
+        $config = self::loadConfig($apiKey);
+        $sampleRate = isset($config['general']['sample_rate'])
+            ? $config['general']['sample_rate']
+            : $sampleRate;
 
         self::init(php_sapi_name() == "cli" ? self::TYPE_WORKER : self::TYPE_WEB, $apiKey);
 
@@ -171,15 +175,21 @@ class Profiler
             return;
         }
 
-        if (!$callIds && strpos($apiKey, '..') === false && file_exists('/etc/qafooprofiler/' . $apiKey . '.ini')) {
-            $callIds = parse_ini_file('/etc/qafooprofiler/' . $apiKey . '.ini');
+        if (isset($config['calls'])) {
+            xhprof_enable(0, array('functions' => array_values($config['calls'])));
+            self::$sampling = true;
+            self::$callIds = $config['calls'];
+        }
+    }
+
+    private static function loadConfig($apiKey)
+    {
+        $config = array();
+        if (strpos($apiKey, '..') === false && file_exists('/etc/qafooprofiler/' . $apiKey . '.ini')) {
+            $config = parse_ini_file('/etc/qafooprofiler/' . $apiKey . '.ini', true);
         }
 
-        if ($callIds) {
-            xhprof_enable(0, array('functions' => array_values($callIds)));
-            self::$sampling = true;
-            self::$callIds = $callIds;
-        }
+        return $config;
     }
 
     private static function decideProfiling($treshold)
