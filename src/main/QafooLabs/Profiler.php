@@ -414,18 +414,18 @@ class Profiler
         if (self::$profiling || self::$sampling) {
             $data = xhprof_disable();
         }
-        $duration = microtime(true) - self::$started;
+        $duration = intval(round(microtime(true) - self::$started));
 
         self::$started = false;
         self::$profiling = false;
         self::$sampling = false;
 
-        if (!self::$operationName) {
+        if (self::$error) {
+            self::storeError(self::$operationName, self::$error, $duration);
             return;
         }
 
-        if (self::$error) {
-            // nothing yet, send errors later
+        if (!self::$operationName) {
             return;
         }
 
@@ -459,12 +459,23 @@ class Profiler
                 }
 
                 $duration = intval(round($data['main()']['wt'] / 1000));
-            } else {
-                $duration = intval(round($duration * 1000));
             }
 
             self::storeMeasurement(self::$operationName, $duration, self::$operationType, $callData);
         }
+    }
+
+    private static function storeError($operationName, $errorData, $duration)
+    {
+        self::$backend->storeError(
+            array(
+                "op" => ($operationName === null ? '__unknown__' : $operationName),
+                "error" => $errorData,
+                "apiKey" => self::$apiKey,
+                "wt" => $duration,
+                "cid" => (string)self::$correlationId
+            )
+        );
     }
 
     private static function storeProfile($operationName, $data, $customTimers, $operationType)
@@ -472,7 +483,6 @@ class Profiler
         if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
             return;
         }
-
         self::$backend->storeProfile(array(
             "uid" => self::getProfileTraceUuid(),
             "op" => $operationName,
@@ -535,6 +545,8 @@ class Profiler
         if ($type === null) {
             $type = E_USER_ERROR;
         }
+
+        $message = Profiler\SqlAnonymizer::anonymize($message);
 
         self::$error = array("message" => $message, "file" => $file, "line" => $line, "type" => $type);
     }

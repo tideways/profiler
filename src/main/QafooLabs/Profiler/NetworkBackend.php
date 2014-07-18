@@ -15,7 +15,15 @@ namespace QafooLabs\Profiler;
 
 class NetworkBackend implements Backend
 {
+    const TYPE_PROFILE = 'profile';
+    const TYPE_ERROR = 'error';
+
     public function storeProfile(array $data)
+    {
+        $this->storeThroughFileSocket(self::TYPE_PROFILE, $data);
+    }
+
+    private function storeThroughFileSocket($dataType, array $data)
     {
         $old = error_reporting(0);
         $fp = stream_socket_client("unix:///tmp/qprofd.sock");
@@ -27,7 +35,12 @@ class NetworkBackend implements Backend
 
         $old = error_reporting(0);
         stream_set_timeout($fp, 0, 10000); // 10 milliseconds max
-        fwrite($fp, json_encode($data));
+        fwrite(
+            $fp,
+            json_encode(
+                array('type' => $dataType, 'payload' => $data)
+            )
+        );
         fclose($fp);
         error_reporting($old);
     }
@@ -51,5 +64,6 @@ class NetworkBackend implements Backend
 
     public function storeError(array $data)
     {
+        $this->storeThroughFileSocket(self::TYPE_ERROR, $data);
     }
 }

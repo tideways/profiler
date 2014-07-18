@@ -24,13 +24,15 @@ namespace QafooLabs\Profiler;
  *
  * If your library such as Doctrine DBAL only uses prepared statements anyways
  * and you don't put user input into SQL yourself, then you can skip this step.
+ *
+ * @TODO: Rename to something more meaningful, since it also anonymizes messages.
  */
 class SqlAnonymizer
 {
     /**
      * @var string
      */
-    const SPLIT_NUMBERS_AND_QUOTED_STRINGS = '(("[^"]+"|\'[^\']+\'|[0-9.]+))';
+    const SPLIT_NUMBERS_AND_QUOTED_STRINGS = '(("[^"]+"|\'[^\']+\'|([0-9]*\.)?[0-9]+))';
 
     /**
      * Anonymize SQL string.
@@ -43,6 +45,6 @@ class SqlAnonymizer
      */
     static public function anonymize($sql)
     {
-        return implode('?', preg_split(self::SPLIT_NUMBERS_AND_QUOTED_STRINGS, $sql));
+        return preg_replace(self::SPLIT_NUMBERS_AND_QUOTED_STRINGS, '?', $sql);
     }
 }
