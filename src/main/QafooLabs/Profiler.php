@@ -488,7 +488,7 @@ class Profiler
             "op" => $operationName,
             "data" => $data,
             "custom" => $customTimers,
-            "vars" => self::$customVars,
+            "vars" => self::$customVars ?: null,
             "apiKey" => self::$apiKey,
             "ot" => $operationType,
             "mem" => round(memory_get_peak_usage() / 1024),
