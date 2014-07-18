@@ -18,39 +18,6 @@ class NetworkBackend implements Backend
     const TYPE_PROFILE = 'profile';
     const TYPE_ERROR = 'error';
 
-    public function storeDevProfile(array $data)
-    {
-        if (function_exists("curl_init") === false) {
-            return;
-        }
-
-        $ch = curl_init("https://profiler.qafoolabs.com/api/profile/create");
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        if (file_exists('/etc/ssl/certs/ca-certificates.crt')) {
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-            curl_setopt($ch, CURLOPT_CAINFO, "/etc/ssl/certs/ca-certificates.crt");
-        } else {
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        }
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            "Content-Type: application/json",
-            "UserAgent: QafooLabs Profiler Collector DevMode"
-        ]);
-
-        if (curl_exec($ch) === false) {
-            $msg = curl_error($ch);
-
-            if (strpos($msg, 'Operation timed out') === false) {
-                throw new \RuntimeException("Failure while pushing profiling data to Qafoo Profiler: " . $msg);
-            }
-        }
-    }
-
     public function storeProfile(array $data)
     {
         $this->storeThroughFileSocket(self::TYPE_PROFILE, $data);

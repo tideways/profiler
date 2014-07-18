@@ -54,19 +54,19 @@ if (class_exists('QafooLabs\Profiler')) {
  *
  * Or for any other timing data:
  *
- *      $id = QafooLabs\Profiler::startCustomTimer(('solr', 'q=foo');
+ *      $id = QafooLabs\Profiler::startCustomTimer('solr', 'q=foo');
  *      QafooLabs\Profiler::stopCustomTimer($id);
  */
 class Profiler
 {
     const TYPE_WEB = 1;
     const TYPE_WORKER = 2;
-    const TYPE_DEV = 3;
 
     private static $apiKey;
     private static $started = false;
     private static $shutdownRegistered = false;
     private static $operationName;
+    private static $customVars;
     private static $customTimers;
     private static $customTimerCount = 0;
     private static $operationType;
@@ -76,6 +76,7 @@ class Profiler
     private static $correlationId;
     private static $backend;
     private static $callIds;
+    private static $uid;
 
     public static function setBackend(Profiler\Backend $backend)
     {
@@ -89,22 +90,8 @@ class Profiler
      */
     public static function startDevelopment($apiKey, $flags = 0, array $options = array())
     {
-        if (self::$started) {
-            return;
-        }
-
-        if (strlen($apiKey) === 0) {
-            return;
-        }
-
-        self::init(self::TYPE_DEV, $apiKey);
-        self::$profiling = function_exists("xhprof_enable");
-
-        if (self::$profiling == false) {
-            return;
-        }
-
-        xhprof_enable($flags, $options);
+        self::setBackend(new Profiler\CurlBackend());
+        self::start($apiKey, 100, $flags, $options);
     }
 
     /**
@@ -134,12 +121,13 @@ class Profiler
      * transmits the profiling data to the local daemon for further processing.
      *
      * @param string            $apiKey Application key can be found in "Settings" tab of Profiler UI
-     * @param int               $sampleRate Sample rate in one 100th of a percent (100 = 1%). Defaults to every tenth request
-     * @param array<string,int> $callIds Key-value pairs of functions to call-id for low-overhead sample mode.
+     * @param int               $sampleRate Sample rate in full percent (1= 1%, 20 = 20%). Defaults to every fifth request
+     * @param int               $flags XHProf option flags.
+     * @param array             $options XHProf options.
      *
      * @return void
      */
-    public static function start($apiKey, $sampleRate = 1000, array $callIds = array())
+    public static function start($apiKey, $sampleRate = 20, $flags = 0, array $options = array())
     {
         if (self::$started) {
             return;
@@ -149,20 +137,25 @@ class Profiler
             return;
         }
 
+        $config = self::loadConfig($apiKey);
+
+        if (isset($config['general']['enabled']) && !$config['general']['enabled']) {
+            return;
+        }
+
+        $sampleRate = isset($config['general']['sample_rate']) ? $config['general']['sample_rate'] : $sampleRate;
+        $flags = isset($config['general']['xhprof_flags']) ? $config['general']['xhprof_flags'] : $flags;
+
         self::init(php_sapi_name() == "cli" ? self::TYPE_WORKER : self::TYPE_WEB, $apiKey);
 
         if (function_exists("xhprof_enable") == false) {
             return;
         }
 
-        if (is_bool($sampleRate)) {
-            $sampleRate = (int)$sampleRate * 10000;
-        }
-
         self::$profiling = self::decideProfiling($sampleRate);
 
         if (self::$profiling == true) {
-            xhprof_enable(); // full profiling mode
+            xhprof_enable($flags, $options); // full profiling mode
             return;
         }
 
@@ -171,15 +164,25 @@ class Profiler
             return;
         }
 
-        if (!$callIds && strpos($apiKey, '..') === false && file_exists('/etc/qafooprofiler/' . $apiKey . '.ini')) {
-            $callIds = parse_ini_file('/etc/qafooprofiler/' . $apiKey . '.ini');
+        if (isset($config['calls'])) {
+            xhprof_enable(0, array('functions' => array_values($config['calls'])));
+            self::$sampling = true;
+            self::$callIds = $config['calls'];
+        }
+    }
+
+    private static function loadConfig($apiKey)
+    {
+        $config = array();
+        if (strpos($apiKey, '..') === false && file_exists('/etc/qafooprofiler/' . $apiKey . '.ini')) {
+            $config = parse_ini_file('/etc/qafooprofiler/' . $apiKey . '.ini', true);
         }
 
-        if ($callIds) {
-            xhprof_enable(0, array('functions' => array_values($callIds)));
-            self::$sampling = true;
-            self::$callIds = $callIds;
+        if (isset($config['general']['backend']) && $config['general']['backend'] === 'curl') {
+            self::setBackend(new Profiler\CurlBackend());
         }
+
+        return $config;
     }
 
     private static function decideProfiling($treshold)
@@ -201,7 +204,7 @@ class Profiler
             $treshold = intval($_SERVER["QAFOO_PROFILER_TRESHOLD"]);
         }
 
-        $rand = rand(1, 10000);
+        $rand = rand(1, 100);
 
         return $rand <= $treshold;
     }
@@ -237,6 +240,7 @@ class Profiler
         self::$profiling = false;
         self::$sampling = false;
         self::$apiKey = $apiKey;
+        self::$customVars = array();
         self::$customTimers = array();
         self::$customTimerCount = 0;
         self::$operationName = null;
@@ -244,6 +248,7 @@ class Profiler
         self::$operationType = $type;
         self::$started = microtime(true);
         self::$callIds = null;
+        self::$uid = null;
     }
 
     /**
@@ -361,6 +366,40 @@ class Profiler
     }
 
     /**
+     * Add a custom variable to this profile.
+     *
+     * Examples are the Request URL, UserId, Correlation Ids and more.
+     *
+     * Please do *NOT* set private data in custom variables as this
+     * data is not encrypted on our servers.
+     *
+     * Only accepts scalar values.
+     *
+     * The key 'url' is a magic value and should contain the request
+     * url if you want to transmit it. The Profiler UI will specially
+     * display it.
+     *
+     * @param string $name
+     * @param scalar $value
+     * @return void
+     */
+    public static function setCustomVariable($name, $value)
+    {
+        if (!self::$profiling || !is_scalar($value)) {
+            return;
+        }
+
+        self::$customVars[$name] = $value;
+    }
+
+    public static function getCustomVariable($name)
+    {
+        return isset(self::$customVars[$name])
+            ? self::$customVars[$name]
+            : null;
+    }
+
+    /**
      * Stop all profiling actions and submit collected data.
      */
     public static function stop()
@@ -381,17 +420,12 @@ class Profiler
         self::$profiling = false;
         self::$sampling = false;
 
-        if (self::$error && self::$operationType !== self::TYPE_DEV) {
+        if (self::$error) {
             self::storeError(self::$operationName, self::$error, $duration);
             return;
         }
 
         if (!self::$operationName) {
-            return;
-        }
-
-        if (self::$operationType === self::TYPE_DEV) {
-            self::storeDevProfile(self::$operationName, $data, self::$customTimers);
             return;
         }
 
@@ -444,33 +478,17 @@ class Profiler
         );
     }
 
-    private static function storeDevProfile($operationName, $data, $customTimers)
-    {
-        if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
-            return;
-        }
-
-        self::$backend->storeDevProfile(array(
-            "apiKey" => self::$apiKey,
-            "op" => $operationName,
-            "ot" => self::TYPE_DEV,
-            "cid" => (string)self::$correlationId,
-            "mem" => round(memory_get_peak_usage() / 1024),
-            "data" => $data,
-            "custom" => $customTimers,
-            "server" => gethostname(),
-        ));
-    }
-
     private static function storeProfile($operationName, $data, $customTimers, $operationType)
     {
         if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
             return;
         }
         self::$backend->storeProfile(array(
+            "uid" => self::getProfileTraceUuid(),
             "op" => $operationName,
             "data" => $data,
             "custom" => $customTimers,
+            "vars" => self::$customVars,
             "apiKey" => self::$apiKey,
             "ot" => $operationType,
             "mem" => round(memory_get_peak_usage() / 1024),
@@ -546,5 +564,40 @@ class Profiler
         }
 
         self::stop();
+    }
+
+    /**
+     * Get a unique identifier for the current profile trace.
+     *
+     * Base64 encoded version of the binary representation of a UUID.
+     *
+     * @return string
+     */
+    public static function getProfileTraceUuid()
+    {
+        if (self::$uid === null) {
+            $uuid = base64_encode(
+                pack(
+                    "h*",
+                    sprintf(
+                        '%04x%04x%04x%04x%04x%04x%04x%04x',
+                        mt_rand(0, 0xffff),
+                        mt_rand(0, 0xffff),
+                        mt_rand(0, 0xffff),
+                        mt_rand(0, 0x0fff) | 0x4000,
+                        mt_rand(0, 0x3fff) | 0x8000,
+                        mt_rand(0, 0xffff),
+                        mt_rand(0, 0xffff),
+                        mt_rand(0, 0xffff)
+                    )
+                )
+            );
+            $uuid = str_replace("/", "_", $uuid);
+            $uuid = str_replace("+", "-", $uuid);
+
+            self::$uid = substr($uuid, 0, strlen($uuid) - 2);
+        }
+
+        return self::$uid;
     }
 }

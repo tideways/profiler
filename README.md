@@ -1,16 +1,14 @@
 # QafooLabs Profiler Client
 
-PHP client Library for the QafooLabs Profiler to use in your projects
-if you dont want or cannot use the pecl extension.
+PHP client Library for the QafooLabs Profiler.
+
+Sign up for beta: https://profiler.qafoolabs.com
 
 ## Installation
 
-There are three ways to install the Profiler Client:
+There are two ways to install the Profiler Client:
 
-1. Use the QafooLabs Profiler PECL Extension
-   Download the `qafooprofiler.so` for your architecture from the Downloads page
-   put it into `/usr/lib/php5/<yourapiversion>/qafooprofiler.so` and integrate in php.ini
-2. Use Composer to install this library with:
+1. Use Composer to install this library with:
 
    ```json
    {
@@ -18,7 +16,7 @@ There are three ways to install the Profiler Client:
    }
    ```
 
-3. Copy the `src/main/QafooLabs/Profiler.php` file into your project and call it via `require`.
+2. Download the single file from Github downloads
 
 The profiler class is intentially monolothic and static to allow easy
 integration in your projects.
@@ -44,17 +42,34 @@ without the daemon.
 // now all your application code here
 \QafooLabs\Profiler::setTransactionName("controller+action name");
 ```
-
 Notes:
 
 - There is a method `QafooLabs\Profiler::stop()` but calling it is optional, a
   shutdown handler will take care of it.
 - If you are using the PECL extension should guard calls to the profiler with `if (class_exists('QafooLabs\Profiler'))`
   to avoid fatal errors when the extension is not installed.
-- Xhprof profiling is sampled at random intervals (defaults to 10% request at the moment)
+- Xhprof profiling is sampled at random intervals (defaults to 20% of all requests)
   and in the other cases just a wall-time of the full request and memory information
-  is collected. You can overwrite the sampling rate by passing a value between 0 (0%) and 10000 (100%) as a second
+  is collected. You can overwrite the sampling rate by passing a value between 0 (0%) and 100 (100%) as a second
   argument to `QafooLabs\Profiler::start()`.
+
+## Configuration
+
+For every application on the server you can optionally create a file `/etc/qafooprofiler/$apiKey.ini`.
+These are the defaults:
+
+    [general]
+    sample_rate=20
+    enabled=1
+    backend=network ; or "curl" if on development server with no Daemon
+    xhprof_flags=0
+
+    [calls]
+    1=mysql_connect
+    ;...
+
+The calls section is optional, but configuring its values will enable the "Layer Profiling" feature.
+You have to copy the values exactly like they are configured in "Settings" tab of your application.
 
 ## Custom Timers
 
@@ -81,6 +96,17 @@ $timerId = \QafooLabs\Profiler::startCustomTimer("solr", "q=foo");
 \QafooLabs\Profiler::stopCustomTimer($timerId);
 ```
 
+## Custom Variables
+
+You can add custom variables to every full profiling trace:
+
+```php
+<?php
+
+\QafooLabs\Profiler::setCustomVariable('url', $_SERVER['HTTP_HOST'] . '/' . $_SERVER['REQUEST_URI']);
+\QafooLabs\Profiler::setCustomVariable('mysql_thread_id', mysql_thread_id());
+```
+
 ## Development Mode
 
 If you want to force collecting profiles during development and send them to
@@ -92,9 +118,10 @@ the Qafoo Profiler you can do so by using the `startDevelopment` method:
 \QafooLabs\Profiler::startDevelopment($apiKey);
 ```
 
-Please note that this is very slow in production as the overhead of HTTP is present
-in every request. We are also rate-limiting our API endpoint and sending too many
-profiles will get you blocked.
+Please note that this is very slow as the overhead of HTTP is present in every
+request. It is not recommended to use this setting in production! We are also
+rate-limiting our API endpoint and sending too many profiles will get you
+blocked, the daemon throttles request automatically.
 
 ## Correlation Ids
 

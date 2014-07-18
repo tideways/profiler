@@ -18,7 +18,6 @@ namespace QafooLabs\Profiler;
  */
 interface Backend
 {
-    public function storeDevProfile(array $data);
     public function storeProfile(array $data);
     public function storeMeasurement(array $data);
     public function storeError(array $data);
