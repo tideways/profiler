@@ -76,6 +76,7 @@ class Profiler
     private static $correlationId;
     private static $backend;
     private static $callIds;
+    private static $uid;
 
     public static function setBackend(Profiler\Backend $backend)
     {
@@ -247,6 +248,7 @@ class Profiler
         self::$operationType = $type;
         self::$started = microtime(true);
         self::$callIds = null;
+        self::$uid = null;
     }
 
     /**
@@ -472,6 +474,7 @@ class Profiler
         }
 
         self::$backend->storeProfile(array(
+            "uid" => self::getProfileTraceUuid(),
             "op" => $operationName,
             "data" => $data,
             "custom" => $customTimers,
@@ -549,5 +552,44 @@ class Profiler
         }
 
         self::stop();
+    }
+
+    /**
+     * Get a unique identifier for the current profile trace.
+     *
+     * Base64 encoded version of the binary representation of a UUID.
+     *
+     * @return string
+     */
+    public static function getProfileTraceUuid()
+    {
+        if (self::$uid === null) {
+            $uuid = base64_encode(
+                pack(
+                    "h*",
+                    str_replace(
+                        '-',
+                        '',
+                        sprintf(
+                            '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+                            mt_rand(0, 0xffff),
+                            mt_rand(0, 0xffff),
+                            mt_rand(0, 0xffff),
+                            mt_rand(0, 0x0fff) | 0x4000,
+                            mt_rand(0, 0x3fff) | 0x8000,
+                            mt_rand(0, 0xffff),
+                            mt_rand(0, 0xffff),
+                            mt_rand(0, 0xffff)
+                        )
+                    )
+                )
+            );
+            $uuid = str_replace("/", "_", $uuid);
+            $uuid = str_replace("+", "-", $uuid);
+
+            self::$uid = substr($uuid, 0, strlen($uuid) - 2);
+        }
+
+        return self::$uid;
     }
 }

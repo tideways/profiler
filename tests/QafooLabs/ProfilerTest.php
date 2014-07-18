@@ -16,6 +16,7 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
 
         $this->assertTrue(\QafooLabs\Profiler::isProfiling());
         $this->assertTrue(\QafooLabs\Profiler::isStarted());
+        $this->assertEquals(22, strlen(\QafooLabs\Profiler::getProfileTraceUuid()));
 
         \QafooLabs\Profiler::stop();
 
