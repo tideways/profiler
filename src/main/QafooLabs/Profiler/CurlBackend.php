@@ -33,11 +33,18 @@ class CurlBackend implements Backend
             'time' => time(),
             'apps' => array(
                 $data['apiKey'] => array(
-                    $data['op'] = array(
-                        array(
-                            'wt' => $data['wt'],
-                            'mem' => $data['mem'],
-                            'c' => $data['c'],
+                    'operations' => array(
+                        $data['op'] => array(
+                            'lastRev' => time()+84600,
+                            'cnt' => 1,
+                            'err' => 0,
+                            'wt' => array(
+                                array(
+                                    'wt' => $data['wt'],
+                                    'mem' => $data['mem'],
+                                    'c' => $data['c'],
+                                )
+                            )
                         )
                     )
                 )

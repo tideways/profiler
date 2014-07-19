@@ -414,7 +414,7 @@ class Profiler
         if (self::$profiling || self::$sampling) {
             $data = xhprof_disable();
         }
-        $duration = intval(round(microtime(true) - self::$started));
+        $duration = intval(round((microtime(true) - self::$started) * 1000));
 
         self::$started = false;
         self::$profiling = false;
