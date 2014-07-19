@@ -69,7 +69,7 @@ class CurlBackend implements Backend
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
             "Content-Type: application/json",
-            "UserAgent: QafooLabs Profiler Collector DevMode"
+            "User-Agent: QafooLabs Profiler Collector DevMode"
         ));
 
         curl_exec($ch);
