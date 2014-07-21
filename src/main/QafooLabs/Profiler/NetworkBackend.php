@@ -25,41 +25,28 @@ class NetworkBackend implements Backend
 
     private function storeThroughFileSocket($dataType, array $data)
     {
-        $old = error_reporting(0);
-        $fp = stream_socket_client("unix:///tmp/qprofd.sock");
-        error_reporting($old);
+        $fp = @stream_socket_client("unix:///tmp/qprofd.sock");
 
         if ($fp == false) {
             return;
         }
 
-        $old = error_reporting(0);
         stream_set_timeout($fp, 0, 10000); // 10 milliseconds max
-        fwrite(
-            $fp,
-            json_encode(
-                array('type' => $dataType, 'payload' => $data)
-            )
-        );
+        @fwrite($fp, json_encode(array('type' => $dataType, 'payload' => $data)));
         fclose($fp);
-        error_reporting($old);
     }
 
     public function storeMeasurement(array $data)
     {
-        $old = error_reporting(0);
-        $fp = stream_socket_client("udp://127.0.0.1:8135");
-        error_reporting($old);
+        $fp = @stream_socket_client("udp://127.0.0.1:8135");
 
         if ($fp == false) {
             return;
         }
 
-        $old = error_reporting(0);
         stream_set_timeout($fp, 0, 200);
-        fwrite($fp, json_encode($data, JSON_FORCE_OBJECT));
+        @fwrite($fp, json_encode($data, JSON_FORCE_OBJECT));
         fclose($fp);
-        error_reporting($old);
     }
 
     public function storeError(array $data)
