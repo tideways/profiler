@@ -278,7 +278,7 @@ class Profiler
 
     public static function setTransactionName($name)
     {
-        self::$operationName = $name;
+        self::$operationName = !empty($name) ? $name : 'empty';
     }
 
     /**
