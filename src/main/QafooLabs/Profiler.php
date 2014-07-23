@@ -243,7 +243,7 @@ class Profiler
         self::$customVars = array();
         self::$customTimers = array();
         self::$customTimerCount = 0;
-        self::$operationName = null;
+        self::$operationName = 'default';
         self::$error = false;
         self::$operationType = $type;
         self::$started = microtime(true);
