@@ -8,7 +8,7 @@ class CurlBackend implements Backend
     private $connectionTimeout;
     private $timeout;
 
-    public function __construct($certificationFile = null, $connectionTimeout = 1, $timeout = 1)
+    public function __construct($certificationFile = null, $connectionTimeout = 3, $timeout = 3)
     {
         $this->certificationFile = $certificationFile;
         $this->connectionTimeout = $connectionTimeout;
@@ -72,6 +72,7 @@ class CurlBackend implements Backend
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
         }
 
+        curl_setopt($ch, CURLOPT_FAILONERROR,true);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
@@ -79,6 +80,8 @@ class CurlBackend implements Backend
             "User-Agent: QafooLabs Profiler Collector DevMode"
         ));
 
-        curl_exec($ch);
+        if (curl_exec($ch) === false) {
+            syslog(LOG_WARNING, "Qafoo Profiler DevMode cURL failed: " . curl_error($ch));
+        }
     }
 }
