@@ -548,7 +548,27 @@ class Profiler
 
         $message = Profiler\SqlAnonymizer::anonymize($message);
 
-        self::$error = array("message" => $message, "file" => $file, "line" => $line, "type" => $type);
+        self::$error = array(
+            "message" => $message,
+            "file" => $file,
+            "line" => $line,
+            "type" => $type,
+            "trace" => null,
+        );
+    }
+
+    public static function logException(\Exception $e)
+    {
+        $exceptionClass = get_class($e);
+        $exceptionCode = $e->getCode();
+
+        self::$error = array(
+            "message" => $e->getMessage(),
+            "file" => $e->getFile(),
+            "line" => $e->getLine(),
+            "type" => $exceptionClass . ($exceptionCode != 0 ? sprintf('(%s)', $exceptionCode) : ''),
+            "trace" => $e->getTrace(),
+        );
     }
 
     public static function shutdown()
