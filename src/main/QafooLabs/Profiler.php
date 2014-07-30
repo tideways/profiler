@@ -562,8 +562,10 @@ class Profiler
         $exceptionClass = get_class($e);
         $exceptionCode = $e->getCode();
 
+        $message = Profiler\SqlAnonymizer::anonymize($e->getMessage());
+
         self::$error = array(
-            "message" => $e->getMessage(),
+            "message" => $message,
             "file" => $e->getFile(),
             "line" => $e->getLine(),
             "type" => $exceptionClass . ($exceptionCode != 0 ? sprintf('(%s)', $exceptionCode) : ''),
