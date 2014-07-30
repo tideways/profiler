@@ -569,8 +569,27 @@ class Profiler
             "file" => $e->getFile(),
             "line" => $e->getLine(),
             "type" => $exceptionClass . ($exceptionCode != 0 ? sprintf('(%s)', $exceptionCode) : ''),
-            "trace" => $e->getTrace(),
+            "trace" => self::anonymizeTrace($e->getTrace()),
         );
+    }
+
+    private static function anonymizeTrace(array $trace)
+    {
+        foreach ($trace as $traceLineId => $traceLine) {
+            if (isset($traceLine['args'])) {
+
+                foreach ($traceLine['args'] as $argId => $arg) {
+                    if (is_object($arg)) {
+                        $traceLine['args'][$argId] = get_class($arg);
+                    } else {
+                        $traceLine['args'][$argId] = gettype($arg);
+                    }
+                }
+                $trace[$traceLineId] = $traceLine;
+
+            }
+        }
+        return $trace;
     }
 
     public static function shutdown()
