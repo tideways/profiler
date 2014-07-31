@@ -422,7 +422,6 @@ class Profiler
 
         if (self::$error) {
             self::storeError(self::$operationName, self::$error, $duration);
-            return;
         }
 
         if (!self::$operationName) {
@@ -461,7 +460,13 @@ class Profiler
                 $duration = intval(round($data['main()']['wt'] / 1000));
             }
 
-            self::storeMeasurement(self::$operationName, $duration, self::$operationType, $callData);
+            self::storeMeasurement(
+                self::$operationName,
+                $duration,
+                self::$operationType,
+                $callData,
+                (self::$error !== false)
+            );
         }
     }
 
@@ -496,7 +501,7 @@ class Profiler
         ));
     }
 
-    private static function storeMeasurement($operationName, $duration, $operationType, array $callData)
+    private static function storeMeasurement($operationName, $duration, $operationType, array $callData, $isError)
     {
         self::$backend->storeMeasurement(array(
             "op" => $operationName,
@@ -504,7 +509,8 @@ class Profiler
             "wt" => $duration,
             "mem" => round(memory_get_peak_usage() / 1024),
             "apiKey" => self::$apiKey,
-            "c" => $callData
+            "c" => $callData,
+            "err" => $isError,
         ));
     }
 
