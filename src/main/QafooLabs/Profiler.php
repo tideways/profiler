@@ -647,4 +647,23 @@ class Profiler
 
         return self::$uid;
     }
+
+    /**
+     * Render HTML that the profiling toolbar picks up to display inline development information.
+     *
+     * This method does not display the html, it just returns it.
+     *
+     * @return string
+     */
+    public static function renderToolbarBootstrapHtml()
+    {
+        if (self::$started == false || self::$sampling === true) {
+            return;
+        }
+
+        return sprintf(
+            '<div id="QafooLabs-Profiler-Profile-Id" data-trace-id="%s" style="display:none !important;" aria-hidden="true"></div>',
+            self::getProfileTraceUuid()
+        );
+    }
 }
