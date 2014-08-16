@@ -78,6 +78,54 @@ class Profiler
     private static $callIds;
     private static $uid;
 
+    private static function getDefaultArgumentFunctions()
+    {
+        return array(
+            'PDOStatement::execute',
+            'PDO::exec',
+            'PDO::query',
+            'mysql_query',
+            'mysqli_query',
+            'mysqli::query',
+            'curl_exec',
+            'file_get_contents',
+            'file_put_contents',
+            'Twig_Template::render',
+            'Smarty::fetch',
+            'Smarty_Internal_TemplateBase::fetch',
+        );
+    }
+
+    private static function getDefaultLayerFunctions()
+    {
+        return array(
+            'PDO::__construct' => 'db',
+            'PDO::exec' => 'db',
+            'PDO::query' => 'db',
+            'PDO::commit' => 'db',
+            'PDOStatement::execute' => 'db',
+            'mysql_query' => 'db',
+            'mysqli_query' => 'db',
+            'mysqli::query' => 'db',
+            'curl_exec' => 'http',
+            'curl_multi_exec' => 'http',
+            'curl_multi_select' => 'http',
+            'file_get_contents' => 'io',
+            'file_put_contents' => 'io',
+            'fopen' => 'io',
+            'fsockopen' => 'io',
+            'fgets' => 'io',
+            'fputs' => 'io',
+            'fwrite' => 'io',
+            'file_exists' => 'io',
+            'MemcachePool::get' => 'cache',
+            'MemcachePool::set' => 'cache',
+            'Memcache::connect' => 'cache',
+            'apc_fetch' => 'cache',
+            'apc_store' => 'cache',
+        );
+    }
+
     public static function setBackend(Profiler\Backend $backend)
     {
         self::$backend = $backend;
@@ -152,6 +200,12 @@ class Profiler
         self::$profiling = self::decideProfiling($sampleRate);
 
         if (self::$profiling == true) {
+            if (isset($_SERVER['QAFOO_PROFILER_ENABLE_ARGUMENTS']) || $_SERVER['QAFOO_PROFILER_ENABLE_ARGUMENTS']) {
+                if (!isset($options['argument_functions'])) {
+                    $options['argument_functions'] = self::getDefaultArgumentFunctions();
+                }
+            }
+
             xhprof_enable($flags, $options); // full profiling mode
             return;
         }
@@ -166,32 +220,7 @@ class Profiler
         }
 
         if (!isset($options['layers'])) {
-            $options['layers'] = array(
-                'PDO::__construct' => 'db',
-                'PDO::exec' => 'db',
-                'PDO::query' => 'db',
-                'PDO::commit' => 'db',
-                'PDOStatement::execute' => 'db',
-                'mysql_query' => 'db',
-                'mysqli_query' => 'db',
-                'mysqli::query' => 'db',
-                'curl_exec' => 'http',
-                'curl_multi_exec' => 'http',
-                'curl_multi_select' => 'http',
-                'file_get_contents' => 'io',
-                'file_put_contents' => 'io',
-                'fopen' => 'io',
-                'fsockopen' => 'io',
-                'fgets' => 'io',
-                'fputs' => 'io',
-                'fwrite' => 'io',
-                'file_exists' => 'io',
-                'MemcachePool::get' => 'cache',
-                'MemcachePool::set' => 'cache',
-                'Memcache::connect' => 'cache',
-                'apc_fetch' => 'cache',
-                'apc_store' => 'cache',
-            );
+            $options['layers'] = self::getDefaultLayerFunctions();
         }
 
         xhprof_enable(0, array('functions' => array_keys($options['layers'])));
