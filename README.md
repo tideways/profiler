@@ -55,21 +55,51 @@ Notes:
 
 ## Configuration
 
-For every application on the server you can optionally create a file `/etc/qafooprofiler/$apiKey.ini`.
-These are the defaults:
+Qafoo Profiler follows [The Twelve-Factor App](http://12factor.net/) rules and is configured
+via environment variables.
 
-    [general]
-    sample_rate=20
-    enabled=1
-    backend=network ; or "curl" if on development server with no Daemon
-    xhprof_flags=0
+This allows you to configure the Profiler differently on each server:
 
-    [calls]
-    1=mysql_connect
-    ;...
+- `QAFOO_PROFILER_DISABLED` controls if the profiler should be disabled on the server.
+- `QAFOO_PROFILER_SAMPLERATE` controls the sample rate how often the profiler should sample full XHProf traces.
+- `QAFOO_PROFILER_ENABLE_LAYERS` controls if XHProf should sample wall times of layers (DB, I/O, ...) in every request.
 
-The calls section is optional, but configuring its values will enable the "Layer Profiling" feature.
-You have to copy the values exactly like they are configured in "Settings" tab of your application.
+For example you can configure this in your PHP FPM Pool configuration:
+
+    env[QAFOO_PROFILER_DISABLED] = 0
+    env[QAFOO_PROFILER_SAMPLERATE] = 10
+    env[QAFOO_PROFILER_ENABLE_LAYERS] = 1
+
+If you enable layers then a set of default functions is profiled in every request, this list contains:
+
+* db
+** `PDO::__construct`
+** `PDO::exec`
+** `PDO::query`
+** `PDO::commit`
+** `PDOStatement::execute`
+** `mysql_query`
+** `mysqli_query`
+** `mysqli::query`
+* http
+** `curl_exec`
+** `curl_multi_exec`
+** `curl_multi_select`
+* io
+** `file_get_contents`
+** `file_put_contents`
+** `fopen`
+** `fsockopen`
+** `fgets`
+** `fputs`
+** `fwrite`
+** `file_exists`
+* cache
+** `MemcachePool::get`
+** `MemcachePool::set`
+** `Memcache::connect`
+** `apc_fetch`
+** `apc_store`
 
 ## Custom Timers
 

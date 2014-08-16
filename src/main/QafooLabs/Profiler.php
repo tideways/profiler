@@ -88,10 +88,10 @@ class Profiler
      *
      * This will always generate a full profile and send it to the profiler via cURL.
      */
-    public static function startDevelopment($apiKey, $flags = 0, array $options = array())
+    public static function startDevelopment($apiKey, array $options = array())
     {
         self::setBackend(new Profiler\CurlBackend());
-        self::start($apiKey, 100, $flags, $options);
+        self::start($apiKey, 100, $options);
     }
 
     /**
@@ -122,12 +122,11 @@ class Profiler
      *
      * @param string            $apiKey Application key can be found in "Settings" tab of Profiler UI
      * @param int               $sampleRate Sample rate in full percent (1= 1%, 20 = 20%). Defaults to every fifth request
-     * @param int               $flags XHProf option flags.
      * @param array             $options XHProf options.
      *
      * @return void
      */
-    public static function start($apiKey, $sampleRate = 20, $flags = 0, array $options = array())
+    public static function start($apiKey, $sampleRate = 20, array $options = array())
     {
         if (self::$started) {
             return;
@@ -137,20 +136,18 @@ class Profiler
             return;
         }
 
-        $config = self::loadConfig($apiKey);
-
-        if (isset($config['general']['enabled']) && !$config['general']['enabled']) {
+        if (isset($_SERVER['QAFOO_PROFILER_DISABLED']) && $_SERVER['QAFOO_PROFILER_DISABLED']) {
             return;
         }
-
-        $sampleRate = isset($config['general']['sample_rate']) ? $config['general']['sample_rate'] : $sampleRate;
-        $flags = isset($config['general']['xhprof_flags']) ? $config['general']['xhprof_flags'] : $flags;
 
         self::init(php_sapi_name() == "cli" ? self::TYPE_WORKER : self::TYPE_WEB, $apiKey);
 
         if (function_exists("xhprof_enable") == false) {
             return;
         }
+
+        $sampleRate = isset($_SERVER['QAFOO_PROFILER_SAMPLERATE']) ? intval($_SERVER['QAFOO_PROFILER_SAMPLERATE']) : $sampleRate;
+        $flags = isset($_SERVER['QAFOO_PROFILER_FLAGS']) ? intval($_SERVER['QAFOO_PROFILER_FLAGS']) : 0;
 
         self::$profiling = self::decideProfiling($sampleRate);
 
@@ -159,30 +156,47 @@ class Profiler
             return;
         }
 
+        if (!isset($_SERVER['QAFOO_PROFILER_ENABLE_LAYERS']) || !$_SERVER['QAFOO_PROFILER_ENABLE_LAYERS']) {
+            return;
+        }
+
         // careless hack to do this with a custom version, need to fork own 'xhprof' extension soon.
         if (version_compare(phpversion('xhprof'), '0.9.5') < 0) {
             return;
         }
 
-        if (isset($config['calls'])) {
-            xhprof_enable(0, array('functions' => array_values($config['calls'])));
-            self::$sampling = true;
-            self::$callIds = $config['calls'];
+        if (!isset($options['layers'])) {
+            $options['layers'] = array(
+                'PDO::__construct' => 'db',
+                'PDO::exec' => 'db',
+                'PDO::query' => 'db',
+                'PDO::commit' => 'db',
+                'PDOStatement::execute' => 'db',
+                'mysql_query' => 'db',
+                'mysqli_query' => 'db',
+                'mysqli::query' => 'db',
+                'curl_exec' => 'http',
+                'curl_multi_exec' => 'http',
+                'curl_multi_select' => 'http',
+                'file_get_contents' => 'io',
+                'file_put_contents' => 'io',
+                'fopen' => 'io',
+                'fsockopen' => 'io',
+                'fgets' => 'io',
+                'fputs' => 'io',
+                'fwrite' => 'io',
+                'file_exists' => 'io',
+                'MemcachePool::get' => 'cache',
+                'MemcachePool::set' => 'cache',
+                'Memcache::connect' => 'cache',
+                'apc_fetch' => 'cache',
+                'apc_store' => 'cache',
+            );
         }
-    }
 
-    private static function loadConfig($apiKey)
-    {
-        $config = array();
-        if (strpos($apiKey, '..') === false && file_exists('/etc/qafooprofiler/' . $apiKey . '.ini')) {
-            $config = parse_ini_file('/etc/qafooprofiler/' . $apiKey . '.ini', true);
-        }
-
-        if (isset($config['general']['backend']) && $config['general']['backend'] === 'curl') {
-            self::setBackend(new Profiler\CurlBackend());
-        }
-
-        return $config;
+        xhprof_enable(0, array('functions' => array_keys($options['layers'])));
+        self::$sampling = true;
+        self::$callIds = $options['layers'];
     }
 
     private static function decideProfiling($treshold)
@@ -435,8 +449,6 @@ class Profiler
 
             if ($sampling) {
                 // TODO: Can we force Xhprof extension to do this directly?
-                $parsedData = array();
-
                 foreach ($data as $parentChild => $childData) {
                     if ($parentChild === 'main()') {
                         continue;
@@ -444,17 +456,17 @@ class Profiler
 
                     list ($parent, $child) = explode('==>', $parentChild);
 
-                    if (!isset($parsedData[$child])) {
-                        $parsedData[$child] = array('wt' => 0, 'ct' => 0);
+                    if (!isset(self::$callIds[$child])) {
+                        continue;
                     }
-                    $parsedData[$child]['wt'] += $childData['wt'];
-                    $parsedData[$child]['ct'] += $childData['ct'];
-                }
 
-                foreach (self::$callIds as $callId => $fn) {
-                    if (isset($parsedData[$fn])) {
-                        $callData["c$callId"] = $parsedData[$fn];
+                    $layer = self::$callIds[$child];
+
+                    if (!isset($callData[$layer])) {
+                        $callData[$layer] = array('wt' => 0, 'ct' => 0);
                     }
+                    $callData[$layer]['wt'] += $childData['wt'];
+                    $callData[$layer]['ct'] += $childData['ct'];
                 }
 
                 $duration = intval(round($data['main()']['wt'] / 1000));
