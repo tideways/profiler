@@ -500,6 +500,15 @@ class Profiler
         if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
             return;
         }
+
+        if (isset($_SERVER['REQUEST_METHOD']) && !isset(self::$customVars['method'])) {
+            self::$customVars['method'] = $_SERVER["REQUEST_METHOD"];
+        }
+
+        if (isset($_SERVER['REQUEST_URI']) && !isset(self::$customVars['url'])) {
+            self::$customVars['url'] = self::getRequestUri();
+        }
+
         self::$backend->storeProfile(array(
             "uid" => self::getProfileTraceUuid(),
             "op" => $operationName,
@@ -547,11 +556,14 @@ class Profiler
             return basename($_SERVER["argv"][0]);
         }
 
-        $uri = strpos($_SERVER["REQUEST_URI"], "?")
+        return $_SERVER["REQUEST_METHOD"] . " " . self::getRequestUri();
+    }
+
+    protected static function getRequestUri()
+    {
+        return strpos($_SERVER["REQUEST_URI"], "?")
             ? substr($_SERVER["REQUEST_URI"], 0, strpos($_SERVER["REQUEST_URI"], "?"))
             : $_SERVER["REQUEST_URI"];
-
-        return $_SERVER["REQUEST_METHOD"] . " " . $uri;
     }
 
     public static function logFatal($message, $file, $line, $type = null)
