@@ -101,6 +101,9 @@ If you enable layers then a set of default functions is profiled in every reques
 ** `apc_fetch`
 ** `apc_store`
 
+You can change this list by explicitly passing your own definition of layers as
+an option key `layers` in `QafooLabs\Profiler::start()`.
+
 ## Custom Timers
 
 You can append custom timing data for example to profile SQL statements:
