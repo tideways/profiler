@@ -63,12 +63,14 @@ This allows you to configure the Profiler differently on each server:
 - `QAFOO_PROFILER_DISABLED` controls if the profiler should be disabled on the server.
 - `QAFOO_PROFILER_SAMPLERATE` controls the sample rate how often the profiler should sample full XHProf traces.
 - `QAFOO_PROFILER_ENABLE_LAYERS` controls if XHProf should sample wall times of layers (DB, I/O, ...) in every request.
+- `QAFOO_PROFILER_ENABLE_ARGUMENTS` controls if argument summaries of important functions such as DB, HTTP and filesystem calls should be traced.
 
 For example you can configure this in your PHP FPM Pool configuration:
 
     env[QAFOO_PROFILER_DISABLED] = 0
     env[QAFOO_PROFILER_SAMPLERATE] = 10
     env[QAFOO_PROFILER_ENABLE_LAYERS] = 1
+    env[QAFOO_PROFILER_ENABLE_ARGUMENTS] = 1
 
 If you enable layers then a set of default functions is profiled in every request, this list contains:
 
