@@ -75,33 +75,33 @@ For example you can configure this in your PHP FPM Pool configuration:
 If you enable layers then a set of default functions is profiled in every request, this list contains:
 
 * db
-** `PDO::__construct`
-** `PDO::exec`
-** `PDO::query`
-** `PDO::commit`
-** `PDOStatement::execute`
-** `mysql_query`
-** `mysqli_query`
-** `mysqli::query`
+   * `PDO::__construct`
+   * `PDO::exec`
+   * `PDO::query`
+   * `PDO::commit`
+   * `PDOStatement::execute`
+   * `mysql_query`
+   * `mysqli_query`
+   * `mysqli::query`
 * http
-** `curl_exec`
-** `curl_multi_exec`
-** `curl_multi_select`
+   * `curl_exec`
+   * `curl_multi_exec`
+   * `curl_multi_select`
 * io
-** `file_get_contents`
-** `file_put_contents`
-** `fopen`
-** `fsockopen`
-** `fgets`
-** `fputs`
-** `fwrite`
-** `file_exists`
+   * `file_get_contents`
+   * `file_put_contents`
+   * `fopen`
+   * `fsockopen`
+   * `fgets`
+   * `fputs`
+   * `fwrite`
+   * `file_exists`
 * cache
-** `MemcachePool::get`
-** `MemcachePool::set`
-** `Memcache::connect`
-** `apc_fetch`
-** `apc_store`
+   * `MemcachePool::get`
+   * `MemcachePool::set`
+   * `Memcache::connect`
+   * `apc_fetch`
+   * `apc_store`
 
 You can change this list by explicitly passing your own definition of layers as
 an option key `layers` in `QafooLabs\Profiler::start()`.
