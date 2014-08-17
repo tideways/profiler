@@ -37,7 +37,7 @@ without the daemon.
 ```php
 <?php
 
-\QafooLabs\Profiler::start("api key here");
+\QafooLabs\Profiler::start("api key here", 20); // 20% Sample-Rate
 
 // now all your application code here
 \QafooLabs\Profiler::setTransactionName("controller+action name");
@@ -45,20 +45,20 @@ without the daemon.
 Notes:
 
 - There is a method `QafooLabs\Profiler::stop()` but calling it is optional, a
-  shutdown handler will take care of it.
-- If you are using the PECL extension should guard calls to the profiler with `if (class_exists('QafooLabs\Profiler'))`
-  to avoid fatal errors when the extension is not installed.
-- Xhprof profiling is sampled at random intervals (defaults to 20% of all requests)
-  and in the other cases just a wall-time of the full request and memory information
-  is collected. You can overwrite the sampling rate by passing a value between 0 (0%) and 100 (100%) as a second
-  argument to `QafooLabs\Profiler::start()`.
+  shutdown handler will take care of it in a web-request.
+- Xhprof profiling is sampled at random intervals (defaults to 20% of all
+  requests) and in the other cases just a wall-time of the full request and
+  memory information is collected. You can overwrite the sampling rate by
+  passing a value between 0 (0%) and 100 (100%) as a second argument to
+  `QafooLabs\Profiler::start()`.
 
 ## Configuration
 
 Qafoo Profiler follows [The Twelve-Factor App](http://12factor.net/) rules and is configured
 via environment variables.
 
-This allows you to configure the Profiler differently on each server:
+This allows you to configure the Profiler differently on each server without having to change
+the code.
 
 - `QAFOO_PROFILER_DISABLED` controls if the profiler should be disabled on the server.
 - `QAFOO_PROFILER_SAMPLERATE` controls the sample rate how often the profiler should sample full XHProf traces.
