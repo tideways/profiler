@@ -472,12 +472,7 @@ class Profiler
         if (!$sampling && $data) {
             self::storeProfile(self::$operationName, $data, self::$customTimers, self::$operationType);
         } else {
-            $callData = array();
-
-            if ($sampling) {
-                $callData = $data;
-                $duration = intval(round($data['main()']['wt'] / 1000));
-            }
+            $callData = $sampling ? $data : array();
 
             self::storeMeasurement(
                 self::$operationName,
