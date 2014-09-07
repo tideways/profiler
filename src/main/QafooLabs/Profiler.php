@@ -75,7 +75,6 @@ class Profiler
     private static $sampling = false;
     private static $correlationId;
     private static $backend;
-    private static $callIds;
     private static $uid;
 
     private static function getDefaultArgumentFunctions()
@@ -215,7 +214,7 @@ class Profiler
         }
 
         // careless hack to do this with a custom version, need to fork own 'xhprof' extension soon.
-        if (version_compare(phpversion('xhprof'), '0.9.5') < 0) {
+        if (version_compare(phpversion('xhprof'), '0.9.7') < 0) {
             return;
         }
 
@@ -223,9 +222,8 @@ class Profiler
             $options['layers'] = self::getDefaultLayerFunctions();
         }
 
-        xhprof_enable(0, array('functions' => array_keys($options['layers'])));
+        xhprof_layers_enable($options['layers']);
         self::$sampling = true;
-        self::$callIds = $options['layers'];
     }
 
     private static function decideProfiling($treshold)
@@ -290,7 +288,6 @@ class Profiler
         self::$error = false;
         self::$operationType = $type;
         self::$started = microtime(true);
-        self::$callIds = null;
         self::$uid = null;
     }
 
@@ -454,9 +451,10 @@ class Profiler
         $data = null;
         $sampling = self::$sampling;
 
-        if (self::$profiling || self::$sampling) {
+        if (self::$sampling || self::$profiling) {
             $data = xhprof_disable();
         }
+
         $duration = intval(round((microtime(true) - self::$started) * 1000));
 
         self::$started = false;
@@ -477,27 +475,7 @@ class Profiler
             $callData = array();
 
             if ($sampling) {
-                // TODO: Can we force Xhprof extension to do this directly?
-                foreach ($data as $parentChild => $childData) {
-                    if ($parentChild === 'main()') {
-                        continue;
-                    }
-
-                    list ($parent, $child) = explode('==>', $parentChild);
-
-                    if (!isset(self::$callIds[$child])) {
-                        continue;
-                    }
-
-                    $layer = self::$callIds[$child];
-
-                    if (!isset($callData[$layer])) {
-                        $callData[$layer] = array('wt' => 0, 'ct' => 0);
-                    }
-                    $callData[$layer]['wt'] += $childData['wt'];
-                    $callData[$layer]['ct'] += $childData['ct'];
-                }
-
+                $callData = $data;
                 $duration = intval(round($data['main()']['wt'] / 1000));
             }
 
@@ -595,7 +573,7 @@ class Profiler
             : $_SERVER["REQUEST_URI"];
     }
 
-    public static function logFatal($message, $file, $line, $type = null)
+    public static function logFatal($message, $file, $line, $type = null, $trace = null)
     {
         if (self::$error) {
             return;
@@ -612,7 +590,7 @@ class Profiler
             "file" => $file,
             "line" => $line,
             "type" => $type,
-            "trace" => null,
+            "trace" => $trace ? self::anonymizeTrace($trace) : null,
         );
     }
 
@@ -653,7 +631,11 @@ class Profiler
 
     public static function shutdown()
     {
-        $lastError = error_get_last();
+        if (version_compare(phpversion('xhprof'), '0.9.7') < 0) {
+            $lastError = error_get_last();
+        } else {
+            $lastError = xhprof_last_fatal_error();
+        }
 
         if ($lastError && ($lastError["type"] === E_ERROR || $lastError["type"] === E_PARSE || $lastError["type"] === E_COMPILE_ERROR)) {
             self::logFatal($lastError["message"], $lastError["file"], $lastError["line"], $lastError["type"]);
