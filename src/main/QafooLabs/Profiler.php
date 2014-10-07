@@ -229,9 +229,11 @@ class Profiler
     private static function decideProfiling($treshold)
     {
         if (isset($_GET["_qprofiler"]) && $_GET["_qprofiler"] === md5(self::$apiKey)) {
+            self::$correlationId = "dev-force"; // make sure Daemon keeps the profile.
             return true;
         }
 
+        // required to manipulate sampling and correlation from load testing tool.
         if (isset($_SERVER["HTTP_X_QPTRESHOLD"]) && isset($_SERVER["HTTP_X_QPHASH"])) {
             if (hash_hmac("sha256", $_SERVER["HTTP_X_QPTRESHOLD"], self::$apiKey) === $_SERVER["HTTP_X_QPHASH"]) {
                 $treshold = intval($_SERVER["HTTP_X_QPTRESHOLD"]);
@@ -241,6 +243,7 @@ class Profiler
                 }
             }
         }
+
         if (isset($_SERVER["QAFOO_PROFILER_TRESHOLD"])) {
             $treshold = intval($_SERVER["QAFOO_PROFILER_TRESHOLD"]);
         }
