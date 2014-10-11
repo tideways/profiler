@@ -13,11 +13,6 @@
 
 namespace QafooLabs;
 
-// Guard against PECL extension
-if (class_exists('QafooLabs\Profiler')) {
-    return;
-}
-
 /**
  * QafooLabs Profiler PHP API
  *
@@ -59,8 +54,9 @@ if (class_exists('QafooLabs\Profiler')) {
  */
 class Profiler
 {
-    const TYPE_WEB = 1;
-    const TYPE_WORKER = 2;
+    const EXT_FATAL     = 1;
+    const EXT_LAYERS    = 2;
+    const EXT_EXCEPTION = 3;
 
     private static $apiKey;
     private static $started = false;
@@ -69,13 +65,14 @@ class Profiler
     private static $customVars;
     private static $customTimers;
     private static $customTimerCount = 0;
-    private static $operationType;
     private static $error;
     private static $profiling = false;
     private static $sampling = false;
     private static $correlationId;
     private static $backend;
     private static $uid;
+    private static $extensionPrefix;
+    private static $extensionFlags = 0;
 
     private static function getDefaultArgumentFunctions()
     {
@@ -187,11 +184,7 @@ class Profiler
             return;
         }
 
-        self::init(php_sapi_name() == "cli" ? self::TYPE_WORKER : self::TYPE_WEB, $apiKey);
-
-        if (function_exists("xhprof_enable") == false) {
-            return;
-        }
+        self::init($apiKey);
 
         $sampleRate = isset($_SERVER['QAFOO_PROFILER_SAMPLERATE']) ? intval($_SERVER['QAFOO_PROFILER_SAMPLERATE']) : $sampleRate;
         $flags = isset($_SERVER['QAFOO_PROFILER_FLAGS']) ? intval($_SERVER['QAFOO_PROFILER_FLAGS']) : 0;
@@ -205,7 +198,8 @@ class Profiler
                 }
             }
 
-            xhprof_enable($flags, $options); // full profiling mode
+            $enable = self::$extensionPrefix . '_enable';
+            $enable($flags, $options); // full profiling mode
             return;
         }
 
@@ -213,8 +207,7 @@ class Profiler
             return;
         }
 
-        // careless hack to do this with a custom version, need to fork own 'xhprof' extension soon.
-        if (version_compare(phpversion('xhprof'), '0.9.7') < 0) {
+        if ((self::$extensionFlags & self::EXT_LAYERS) > 0) {
             return;
         }
 
@@ -222,7 +215,9 @@ class Profiler
             $options['layers'] = self::getDefaultLayerFunctions();
         }
 
-        xhprof_layers_enable($options['layers']);
+        $enable = self::$extensionPrefix . '_layers_enable';
+        $enable($options['layers']);
+
         self::$sampling = true;
     }
 
@@ -264,13 +259,14 @@ class Profiler
             self::$profiling = false;
             self::$sampling = false;
 
-            xhprof_disable();
+            $disable = self::$extensionPrefix . '_disable';
+            $disable();
         }
 
         self::$started = false;
     }
 
-    private static function init($type, $apiKey)
+    private static function init($apiKey)
     {
         if (self::$shutdownRegistered == false) {
             register_shutdown_function(array("QafooLabs\\Profiler", "shutdown"));
@@ -289,9 +285,23 @@ class Profiler
         self::$customTimerCount = 0;
         self::$operationName = 'default';
         self::$error = false;
-        self::$operationType = $type;
         self::$started = microtime(true);
         self::$uid = null;
+
+        if (function_exists('qafooprofiler_enable')) {
+            self::$extensionPrefix = 'qafooprofiler';
+            self::$extensionFlags = (self::EXT_EXCEPTION | self::EXT_LAYERS | self::EXT_FATAL);
+            self::$customVars['xhpv'] = 'qp-' . phpversion('qafooprofiler');
+        } else if (function_exists('xhprof_enable')) {
+            self::$extensionPrefix = 'xhprof';
+            self::$extensionFlags = (version_compare(phpversion('xhprof'), '0.9.7') >= 0) ? (self::EXT_LAYERS | self::EXT_FATAL) : 0;
+            self::$customVars['xhpv'] = 'xhp-' . phpversion('xhprof');
+        } else if (function_exists('uprofiler_enable')) {
+            self::$extensionPrefix = 'uprofiler';
+            self::$customVars['xhpv'] = 'up-' . phpversion('uprofiler');
+        } else {
+            return;
+        }
     }
 
     /**
@@ -455,7 +465,8 @@ class Profiler
         $sampling = self::$sampling;
 
         if (self::$sampling || self::$profiling) {
-            $data = xhprof_disable();
+            $disable = self::$extensionPrefix . '_disable';
+            $data = $disable();
         }
 
         $duration = intval(round((microtime(true) - self::$started) * 1000));
@@ -473,14 +484,13 @@ class Profiler
         }
 
         if (!$sampling && $data) {
-            self::storeProfile(self::$operationName, $data, self::$customTimers, self::$operationType);
+            self::storeProfile(self::$operationName, $data, self::$customTimers);
         } else {
             $callData = $sampling ? $data : array();
 
             self::storeMeasurement(
                 self::$operationName,
                 $duration,
-                self::$operationType,
                 $callData,
                 (self::$error !== false)
             );
@@ -500,7 +510,7 @@ class Profiler
         );
     }
 
-    private static function storeProfile($operationName, $data, $customTimers, $operationType)
+    private static function storeProfile($operationName, $data, $customTimers)
     {
         if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
             return;
@@ -521,17 +531,15 @@ class Profiler
             "custom" => $customTimers,
             "vars" => self::$customVars ?: null,
             "apiKey" => self::$apiKey,
-            "ot" => $operationType,
             "mem" => round(memory_get_peak_usage() / 1024),
             "cid" => (string)self::$correlationId,
         ));
     }
 
-    private static function storeMeasurement($operationName, $duration, $operationType, array $callData, $isError)
+    private static function storeMeasurement($operationName, $duration, array $callData, $isError)
     {
         self::$backend->storeMeasurement(array(
             "op" => $operationName,
-            "ot" => $operationType,
             "wt" => $duration,
             "mem" => round(memory_get_peak_usage() / 1024),
             "apiKey" => self::$apiKey,
@@ -629,10 +637,11 @@ class Profiler
 
     public static function shutdown()
     {
-        if (version_compare(phpversion('xhprof'), '0.9.7') < 0) {
-            $lastError = error_get_last();
+        if ((self::$extensionFlags & self::EXT_FATAL) > 0) {
+            $callback = self::$extensionPrefix . '_last_fatal_error';
+            $lastError = $callback();
         } else {
-            $lastError = xhprof_last_fatal_error();
+            $lastError = error_get_last();
         }
 
         if ($lastError && ($lastError["type"] === E_ERROR || $lastError["type"] === E_PARSE || $lastError["type"] === E_COMPILE_ERROR)) {
@@ -640,7 +649,23 @@ class Profiler
         }
 
         if (function_exists("http_response_code") && http_response_code() >= 500) {
-            self::logFatal("PHP request set error HTTP response code to '" . http_response_code() . "'.", "", 0, E_USER_ERROR);
+            $exception = null;
+            if ((self::$extensionFlags & self::EXT_FATAL) > 0) {
+                $callback = self::$extensionPrefix . '_last_exception_data';
+                $exception = $callback();
+            }
+
+            if ($exception) {
+                self::logFatal(
+                    $exception['class'] . ': ' . $exception['message'],
+                    $exception['file'],
+                    $exception['line'],
+                    $exception['code'],
+                    $exception['trace']
+                );
+            } else {
+                self::logFatal("PHP request set error HTTP response code to '" . http_response_code() . "'.", "", 0, E_USER_ERROR);
+            }
         }
 
         self::stop();
