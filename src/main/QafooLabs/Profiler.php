@@ -54,10 +54,19 @@ namespace QafooLabs;
  */
 class Profiler
 {
-    const EXT_FATAL     = 1;
-    const EXT_LAYERS    = 2;
-    const EXT_EXCEPTION = 3;
+    const EXT_FATAL            = 1;
+    const EXT_LAYERS           = 2;
+    const EXT_EXCEPTION        = 4;
+    const EXT_TRANSACTION_NAME = 8;
 
+    const FRAMEWORK_ZEND_FRAMEWORK1 = 'Zend_Controller_Action::dispatch';
+    const FRAMEWORK_ZEND_FRAMEWORK2 = 'Zend\\MVC\\Controller\\ControllerManager::get';
+    const FRAMEWORK_SYMFONY2 = 'Symfony\Component\HttpKernel\Controller\ControllerResolver::createController';
+    const FRAMEWORK_OXID = 'oxView::setClassName';
+    const FRAMEWORK_SHOPWARE = 'Enlight_Controller_Action::dispatch';
+    const FRAMEWORK_WORDPRESS = 'get_query_template';
+
+    private static $framework;
     private static $apiKey;
     private static $started = false;
     private static $shutdownRegistered = false;
@@ -125,6 +134,13 @@ class Profiler
     public static function setBackend(Profiler\Backend $backend)
     {
         self::$backend = $backend;
+    }
+
+    public static function detectFrameworkTransaction($framework)
+    {
+        if (extension_loaded('qafooprofiler')) {
+            self::$framework = $framework;
+        }
     }
 
     /**
@@ -198,6 +214,10 @@ class Profiler
                 }
             }
 
+            if (self::$framework) {
+                $options['transaction_function'] = self::$framework;
+            }
+
             $enable = self::$extensionPrefix . '_enable';
             $enable($flags, $options); // full profiling mode
             return;
@@ -216,7 +236,7 @@ class Profiler
         }
 
         $enable = self::$extensionPrefix . '_layers_enable';
-        $enable($options['layers']);
+        $enable($options['layers'], self::$framework);
 
         self::$sampling = true;
     }
@@ -290,7 +310,7 @@ class Profiler
 
         if (function_exists('qafooprofiler_enable')) {
             self::$extensionPrefix = 'qafooprofiler';
-            self::$extensionFlags = (self::EXT_EXCEPTION | self::EXT_LAYERS | self::EXT_FATAL);
+            self::$extensionFlags = (self::EXT_EXCEPTION | self::EXT_LAYERS | self::EXT_FATAL | self::EXT_TRANSACTION_NAME);
             self::$customVars['xhpv'] = 'qp-' . phpversion('qafooprofiler');
         } else if (function_exists('xhprof_enable')) {
             self::$extensionPrefix = 'xhprof';
@@ -463,6 +483,10 @@ class Profiler
 
         $data = null;
         $sampling = self::$sampling;
+
+        if (self::$operationName === 'default' && (self::$extensionFlags & self::EXT_TRANSACTION_NAME) > 0) {
+            self::$operationName = qafooprofiler_transaction_name() ?: 'default';
+        }
 
         if (self::$sampling || self::$profiling) {
             $disable = self::$extensionPrefix . '_disable';
