@@ -72,6 +72,24 @@ For example you can configure this in your PHP FPM Pool configuration:
     env[QAFOO_PROFILER_ENABLE_LAYERS] = 1
     env[QAFOO_PROFILER_ENABLE_ARGUMENTS] = 1
 
+### Framework Detection
+
+Every request should be grouped by a transaction name that captures the name of the executed controller/action
+in your application. This is usually done with `\QafooLabs\Profiler::setTransactionName()`.
+For various popular frameworks we have added support to detect the transaction names automatically while profiling.
+To enable a framework just call `\QafooLabs\Profiler::detectFrameworkTransaction` with one of the following constants:
+
+- `QafooLabs\Profiler::FRAMEWORK_ZEND_FRAMEWORK1` for Zend Framework1 apps
+- `QafooLabs\Profiler::FRAMEWORK_ZEND_FRAMEWORK2` for Zend Framework2 apps
+- `QafooLabs\Profiler::FRAMEWORK_ZEND_SYMFONY2` for Symfony2 apps
+- `QafooLabs\Profiler::FRAMEWORK_SHOPWARE` for Shopware apps
+- `QafooLabs\Profiler::FRAMEWORK_OXID` for Oxid apps
+- `QafooLabs\Profiler::FRAMEWORK_WORDPRESS` for Wordpress apps
+
+We are planning to add more frameworks as we improve the library.
+
+### Layer Profiling
+
 If you enable layers then a set of default functions is profiled in every request, this list contains:
 
 * db

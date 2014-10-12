@@ -136,6 +136,11 @@ class Profiler
         self::$backend = $backend;
     }
 
+    /**
+     * Instruct Qafoo Profiler to automatically detect transaction names during profiling.
+     *
+     * @param string $framework one of the QafooLabs\Profiler::FRAMEWORK_* constants.
+     */
     public static function detectFrameworkTransaction($framework)
     {
         if (extension_loaded('qafooprofiler')) {
