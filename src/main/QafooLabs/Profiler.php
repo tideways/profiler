@@ -207,6 +207,10 @@ class Profiler
 
         self::init($apiKey);
 
+        if (!self::$extensionPrefix) {
+            return;
+        }
+
         $sampleRate = isset($_SERVER['QAFOO_PROFILER_SAMPLERATE']) ? intval($_SERVER['QAFOO_PROFILER_SAMPLERATE']) : $sampleRate;
         $flags = isset($_SERVER['QAFOO_PROFILER_FLAGS']) ? intval($_SERVER['QAFOO_PROFILER_FLAGS']) : 0;
 
@@ -679,7 +683,7 @@ class Profiler
 
         if (function_exists("http_response_code") && http_response_code() >= 500) {
             $exception = null;
-            if ((self::$extensionFlags & self::EXT_FATAL) > 0) {
+            if ((self::$extensionFlags & self::EXT_EXCEPTION) > 0) {
                 $callback = self::$extensionPrefix . '_last_exception_data';
                 $exception = $callback();
             }
