@@ -61,7 +61,8 @@ class Profiler
 
     const FRAMEWORK_ZEND_FRAMEWORK1 = 'Zend_Controller_Action::dispatch';
     const FRAMEWORK_ZEND_FRAMEWORK2 = 'Zend\\MVC\\Controller\\ControllerManager::get';
-    const FRAMEWORK_SYMFONY2 = 'Symfony\Component\HttpKernel\Controller\ControllerResolver::createController';
+    const FRAMEWORK_SYMFONY2_COMPONENT = 'Symfony\Component\HttpKernel\Controller\ControllerResolver::createController';
+    const FRAMEWORK_SYMFONY2_FRAMEWORK = 'Symfony\Bundle\FrameworkBundle\Controller\ControllerResolver::createController';
     const FRAMEWORK_OXID = 'oxView::setClassName';
     const FRAMEWORK_SHOPWARE = 'Enlight_Controller_Action::dispatch';
     const FRAMEWORK_WORDPRESS = 'get_query_template';
