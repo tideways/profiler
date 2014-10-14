@@ -152,11 +152,13 @@ class Profiler
     /**
      * Start profiling in development mode.
      *
-     * This will always generate a full profile and send it to the profiler via cURL.
+     * This will always generate a full profile and send it to the profiler.
+     *
+     * WARNING: This method can cause huge performance impact on production
+     * setups.
      */
     public static function startDevelopment($apiKey, array $options = array())
     {
-        self::setBackend(new Profiler\CurlBackend());
         self::start($apiKey, 100, $options);
     }
 
@@ -237,7 +239,7 @@ class Profiler
             return;
         }
 
-        if ((self::$extensionFlags & self::EXT_LAYERS) > 0) {
+        if ((self::$extensionFlags & self::EXT_LAYERS) === 0) {
             return;
         }
 
@@ -255,6 +257,11 @@ class Profiler
     {
         if (isset($_GET["_qprofiler"]) && $_GET["_qprofiler"] === md5(self::$apiKey)) {
             self::$correlationId = "dev-force"; // make sure Daemon keeps the profile.
+
+            if (isset($_GET['_qpm']) && $_GET['_qpm'] === "curl") {
+                self::setBackend(new Profiler\CurlBackend());
+            }
+
             return true;
         }
 
@@ -630,7 +637,7 @@ class Profiler
             "file" => $file,
             "line" => $line,
             "type" => $type,
-            "trace" => $trace ? self::anonymizeTrace($trace) : null,
+            "trace" => ($trace && is_array($trace)) ? self::anonymizeTrace($trace) : null,
         );
     }
 
@@ -650,8 +657,12 @@ class Profiler
         );
     }
 
-    private static function anonymizeTrace(array $trace)
+    private static function anonymizeTrace($trace)
     {
+        if (is_string($trace)) {
+            return $trace;
+        }
+
         foreach ($trace as $traceLineId => $traceLine) {
             if (isset($traceLine['args'])) {
 
@@ -679,7 +690,13 @@ class Profiler
         }
 
         if ($lastError && ($lastError["type"] === E_ERROR || $lastError["type"] === E_PARSE || $lastError["type"] === E_COMPILE_ERROR)) {
-            self::logFatal($lastError["message"], $lastError["file"], $lastError["line"], $lastError["type"]);
+            self::logFatal(
+                $lastError["message"],
+                $lastError["file"],
+                $lastError["line"],
+                $lastError["type"],
+                isset($lastError["trace"]) ? $lastError["trace"] : null
+            );
         }
 
         if (function_exists("http_response_code") && http_response_code() >= 500) {
@@ -694,8 +711,7 @@ class Profiler
                     $exception['class'] . ': ' . $exception['message'],
                     $exception['file'],
                     $exception['line'],
-                    $exception['code'],
-                    $exception['trace']
+                    $exception['code']
                 );
             } else {
                 self::logFatal("PHP request set error HTTP response code to '" . http_response_code() . "'.", "", 0, E_USER_ERROR);
