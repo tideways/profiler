@@ -248,7 +248,11 @@ class Profiler
         }
 
         $enable = self::$extensionPrefix . '_layers_enable';
-        $enable($options['layers'], self::$framework);
+        if ($enable === 'xhprof_layers_enable') {
+            $enable($options['layers']);
+        } else {
+            $enable($options['layers'], self::$framework);
+        }
 
         self::$sampling = true;
     }
