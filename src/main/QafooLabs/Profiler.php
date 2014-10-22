@@ -220,7 +220,7 @@ class Profiler
         self::$profiling = self::decideProfiling($sampleRate);
 
         if (self::$profiling == true) {
-            if (isset($_SERVER['QAFOO_PROFILER_ENABLE_ARGUMENTS']) && $_SERVER['QAFOO_PROFILER_ENABLE_ARGUMENTS']) {
+            if (!isset($_SERVER['QAFOO_PROFILER_ENABLE_ARGUMENTS']) || $_SERVER['QAFOO_PROFILER_ENABLE_ARGUMENTS'] == true) {
                 if (!isset($options['argument_functions'])) {
                     $options['argument_functions'] = self::getDefaultArgumentFunctions();
                 }
