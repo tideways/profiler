@@ -94,11 +94,11 @@ class Profiler
             'mysqli_query',
             'mysqli::query',
             'curl_exec',
-            'file_get_contents',
-            'file_put_contents',
+            //'file_get_contents', //enable again when only http calls get extracted
+            //'file_put_contents', //enable again when only http calls get extracted
             'Twig_Template::render',
-            'Smarty::fetch',
-            'Smarty_Internal_TemplateBase::fetch',
+            //'Smarty::fetch',
+            //'Smarty_Internal_TemplateBase::fetch',
         );
     }
 
