@@ -23,7 +23,12 @@ class CurlBackend implements Backend
 
         $data['server'] = gethostname();
 
-        $this->request("https://profiler.qafoolabs.com/api/profile/create", $data);
+        $this->request(
+            "https://profiler.qafoolabs.com/api/profile/create",
+            $data,
+            $data['apiKey'],
+            $data['op']
+        );
     }
 
     public function storeMeasurement(array $data)
@@ -56,7 +61,7 @@ class CurlBackend implements Backend
     {
     }
 
-    private function request($url, $data)
+    private function request($url, $data, $apiKey = null, $operation = null)
     {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $this->connectionTimeout);
@@ -72,13 +77,22 @@ class CurlBackend implements Backend
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
         }
 
+        $headers = array(
+            "Content-Type: application/json+gzip",
+            "User-Agent: QafooLabs Profiler Collector DevMode"
+        );
+
+        if ($apiKey) {
+            $headers[] = 'X-Profiler-Key: ' . $apiKey;
+        }
+        if ($operation) {
+            $headers[] = 'X-Profiler-Op: ' . $operation;
+        }
+
         curl_setopt($ch, CURLOPT_FAILONERROR,true);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
         curl_setopt($ch, CURLOPT_POSTFIELDS, gzencode(json_encode($data)));
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            "Content-Type: application/json+gzip",
-            "User-Agent: QafooLabs Profiler Collector DevMode"
-        ));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
         if (curl_exec($ch) === false) {
             syslog(LOG_WARNING, "Qafoo Profiler DevMode cURL failed: " . curl_error($ch));
