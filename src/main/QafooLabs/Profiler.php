@@ -704,22 +704,7 @@ class Profiler
         }
 
         if (function_exists("http_response_code") && http_response_code() >= 500) {
-            $exception = null;
-            if ((self::$extensionFlags & self::EXT_EXCEPTION) > 0) {
-                $callback = self::$extensionPrefix . '_last_exception_data';
-                $exception = $callback();
-            }
-
-            if ($exception) {
-                self::logFatal(
-                    $exception['class'] . ': ' . $exception['message'],
-                    $exception['file'],
-                    $exception['line'],
-                    $exception['code']
-                );
-            } else {
-                self::logFatal("PHP request set error HTTP response code to '" . http_response_code() . "'.", "", 0, E_USER_ERROR);
-            }
+            self::logFatal("PHP request set error HTTP response code to '" . http_response_code() . "'.", "", 0, E_USER_ERROR);
         }
 
         self::stop();
