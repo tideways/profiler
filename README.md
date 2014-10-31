@@ -81,7 +81,7 @@ To enable a framework just call `\QafooLabs\Profiler::detectFrameworkTransaction
 
 - `QafooLabs\Profiler::FRAMEWORK_ZEND_FRAMEWORK1` for Zend Framework1 apps
 - `QafooLabs\Profiler::FRAMEWORK_ZEND_FRAMEWORK2` for Zend Framework2 apps
-- `QafooLabs\Profiler::FRAMEWORK_ZEND_SYMFONY2` for Symfony2 apps
+- `QafooLabs\Profiler::FRAMEWORK_SYMFONY2_FRAMEWORK` for Symfony2 apps
 - `QafooLabs\Profiler::FRAMEWORK_SHOPWARE` for Shopware apps
 - `QafooLabs\Profiler::FRAMEWORK_OXID` for Oxid apps
 - `QafooLabs\Profiler::FRAMEWORK_WORDPRESS` for Wordpress apps
