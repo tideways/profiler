@@ -181,9 +181,9 @@ class Profiler
      * Factors that influence sample rate:
      *
      * 1. Second parameter $sampleRate to start() method.
-     * 2. _qprofiler Query Parameter equals md5 hash of API-Key sets sample rate to 100%
-     * 3. X-QPTreshold and X-QPHash HTTP Headers. The hash is a sha256 hmac of the treshold with the API-Key.
-     * 4. QAFOO_PROFILER_TRESHOLD environment variable.
+     * 2. _qprofiler Query Parameter (string key is deprecated or array)
+     * 3. Cookie QAFOO_PROFILER_SESSION
+     * 4. QAFOO_PROFILER_SAMPLERATE environment variable.
      *
      * start() automatically invokes a register shutdown handler that stops and
      * transmits the profiling data to the local daemon for further processing.
@@ -259,29 +259,36 @@ class Profiler
 
     private static function decideProfiling($treshold)
     {
-        if (isset($_GET["_qprofiler"]) && $_GET["_qprofiler"] === md5(self::$apiKey)) {
-            self::$correlationId = "dev-force"; // make sure Daemon keeps the profile.
+        // Deprecated method, will be removed soon
+        if (isset($_GET['_qprofiler']) && is_string($_GET['_qprofiler']) && $_GET['_qprofiler'] === md5(self::$apiKey)) {
+            self::$correlationId = 'dev-force'; // make sure Daemon keeps the profile.
 
-            if (isset($_GET['_qpm']) && $_GET['_qpm'] === "curl") {
+            if (isset($_GET['_qpm']) && $_GET['_qpm'] === 'curl') {
                 self::setBackend(new Profiler\CurlBackend());
             }
 
             return true;
         }
 
-        // required to manipulate sampling and correlation from load testing tool.
-        if (isset($_SERVER["HTTP_X_QPTRESHOLD"]) && isset($_SERVER["HTTP_X_QPHASH"])) {
-            if (hash_hmac("sha256", $_SERVER["HTTP_X_QPTRESHOLD"], self::$apiKey) === $_SERVER["HTTP_X_QPHASH"]) {
-                $treshold = intval($_SERVER["HTTP_X_QPTRESHOLD"]);
-
-                if (isset($_SERVER["HTTP_X_QPCORRELATIONID"])) {
-                    self::$correlationId = strval($_SERVER["HTTP_X_QPCORRELATIONID"]);
-                }
-            }
+        $vars = array();
+        if (isset($_COOKIE['QAFOO_PROFILER_SESSION']) && is_string($_COOKIE['QAFOO_PROFILER_SESSION'])) {
+            parse_str($_COOKIE['QAFOO_PROFILER_SESSION'], $vars);
+        } else if (isset($_GET['_qprofiler']) && is_array($_GET['_qprofiler'])) {
+            $vars = $_GET['_qprofiler'];
         }
 
-        if (isset($_SERVER["QAFOO_PROFILER_TRESHOLD"])) {
-            $treshold = intval($_SERVER["QAFOO_PROFILER_TRESHOLD"]);
+        if (isset($vars['hmac'], $vars['time'], $vars['user'], $vars['method'])) {
+            $message = 'method=' . $vars['method'] . '&time=' . $vars['time'] . '&user=' . $vars['user'];
+
+            if ($vars['time'] > time() && hash_hmac($message, md5(self::$apiKey)) === $vars['hmac']) {
+                if ($vars['method'] === 'curl') {
+                    self::setBackend(new Profiler\CurlBackend());
+                }
+
+                self::$correlationId = 'dev-user-' . $vars['user'];
+
+                return true;
+            }
         }
 
         $rand = rand(1, 100);
