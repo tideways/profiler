@@ -277,10 +277,10 @@ class Profiler
             $vars = $_GET['_qprofiler'];
         }
 
-        if (isset($vars['hmac'], $vars['time'], $vars['user'], $vars['method'])) {
+        if (isset($vars['hash'], $vars['time'], $vars['user'], $vars['method'])) {
             $message = 'method=' . $vars['method'] . '&time=' . $vars['time'] . '&user=' . $vars['user'];
 
-            if ($vars['time'] > time() && hash_hmac($message, md5(self::$apiKey)) === $vars['hmac']) {
+            if ($vars['time'] > time() && hash_hmac('sha256', $message, md5(self::$apiKey)) === $vars['hash']) {
                 if ($vars['method'] === 'curl') {
                     self::setBackend(new Profiler\CurlBackend());
                 }
