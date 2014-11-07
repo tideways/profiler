@@ -64,6 +64,7 @@ the code.
 - `QAFOO_PROFILER_SAMPLERATE` controls the sample rate how often the profiler should sample full XHProf traces.
 - `QAFOO_PROFILER_ENABLE_LAYERS` controls if XHProf should sample wall times of layers (DB, I/O, ...) in every request.
 - `QAFOO_PROFILER_ENABLE_ARGUMENTS` controls if argument summaries of important functions such as DB, HTTP and filesystem calls should be traced.
+- `QAFOO_PROFILER_DISABLE_SESSIONS` controls if explicit developer sessions are allowed.
 
 For example you can configure this in your PHP FPM Pool configuration:
 
@@ -71,6 +72,7 @@ For example you can configure this in your PHP FPM Pool configuration:
     env[QAFOO_PROFILER_SAMPLERATE] = 10
     env[QAFOO_PROFILER_ENABLE_LAYERS] = 1
     env[QAFOO_PROFILER_ENABLE_ARGUMENTS] = 1
+    env[QAFOO_PROFILER_DISABLE_SESSIONS] = 0
 
 ### Framework Detection
 

@@ -271,10 +271,19 @@ class Profiler
         }
 
         $vars = array();
-        if (isset($_COOKIE['QAFOO_PROFILER_SESSION']) && is_string($_COOKIE['QAFOO_PROFILER_SESSION'])) {
+
+        if (isset($_SERVER['HTTP_X_QAFOO_PROFILER']) && is_string($_SERVER['HTTP_X_QAFOO_PROFILER'])) {
+            parse_str($_SERVER['HTTP_X_QAFOO_PROFILER'], $vars);
+        } else if (isset($_SERVER['QAFOO_PROFILER_SESSION']) && is_string($_SERVER['QAFOO_PROFILER_SESSION'])) {
+            parse_str($_SERVER['QAFOO_PROFILER_SESSION'], $vars);
+        } else if (isset($_COOKIE['QAFOO_PROFILER_SESSION']) && is_string($_COOKIE['QAFOO_PROFILER_SESSION'])) {
             parse_str($_COOKIE['QAFOO_PROFILER_SESSION'], $vars);
         } else if (isset($_GET['_qprofiler']) && is_array($_GET['_qprofiler'])) {
             $vars = $_GET['_qprofiler'];
+        }
+
+        if (isset($_SERVER['QAFOO_PROFILER_DISABLE_SESSIONS']) && $_SERVER['QAFOO_PROFILER_DISABLE_SESSIONS']) {
+            $vars = array();
         }
 
         if (isset($vars['hash'], $vars['time'], $vars['user'], $vars['method'])) {
