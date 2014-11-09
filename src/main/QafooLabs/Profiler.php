@@ -86,7 +86,7 @@ class Profiler
 
     private static function getDefaultArgumentFunctions()
     {
-        return array(
+        $argumentFunctions = array(
             'PDOStatement::execute',
             'PDO::exec',
             'PDO::query',
@@ -94,12 +94,15 @@ class Profiler
             'mysqli_query',
             'mysqli::query',
             'curl_exec',
-            //'file_get_contents', //enable again when only http calls get extracted
-            //'file_put_contents', //enable again when only http calls get extracted
             'Twig_Template::render',
-            //'Smarty::fetch',
-            //'Smarty_Internal_TemplateBase::fetch',
         );
+
+        if (version_compare(phpversion("qafooprofiler"), "1.2.2") >= 0) {
+            $argumentFunctions[] = 'Smarty::fetch';
+            $argumentFunctions[] = 'Smarty_Internal_TemplateBase::fetch';
+        }
+
+        return $argumentFunctions;
     }
 
     private static function getDefaultLayerFunctions()
@@ -235,24 +238,21 @@ class Profiler
             return;
         }
 
-        if (!isset($_SERVER['QAFOO_PROFILER_ENABLE_LAYERS']) || !$_SERVER['QAFOO_PROFILER_ENABLE_LAYERS']) {
-            return;
-        }
-
         if ((self::$extensionFlags & self::EXT_LAYERS) === 0) {
             return;
         }
 
-        if (!isset($options['layers'])) {
+        if (!isset($_SERVER['QAFOO_PROFILER_ENABLE_LAYERS']) || !$_SERVER['QAFOO_PROFILER_ENABLE_LAYERS']) {
+            $options['layers'] = array();
+        } else if (!isset($options['layers'])) {
             $options['layers'] = self::getDefaultLayerFunctions();
         }
 
-        $enable = self::$extensionPrefix . '_layers_enable';
-        if ($enable === 'xhprof_layers_enable') {
-            $enable($options['layers']);
-        } else {
-            $enable($options['layers'], self::$framework);
+        if (!$options['layers'] && !self::$framework) {
+            return;
         }
+
+        qafooprofiler_layers_enable($options['layers'], self::$framework);
 
         self::$sampling = true;
     }
@@ -346,18 +346,18 @@ class Profiler
         self::$uid = null;
 
         if (function_exists('qafooprofiler_enable')) {
+            $version = phpversion('qafooprofiler');
+
             self::$extensionPrefix = 'qafooprofiler';
-            self::$extensionFlags = (self::EXT_EXCEPTION | self::EXT_LAYERS | self::EXT_FATAL | self::EXT_TRANSACTION_NAME);
-            self::$customVars['xhpv'] = 'qp-' . phpversion('qafooprofiler');
+            self::$extensionFlags = (self::EXT_EXCEPTION | self::EXT_FATAL | self::EXT_TRANSACTION_NAME);
+            self::$extensionFlags |= (version_compare($version, "1.2.2") >= 0) ? self::EXT_LAYERS : 0;
+            self::$customVars['xhpv'] = 'qp-' . $version;
         } else if (function_exists('xhprof_enable')) {
             self::$extensionPrefix = 'xhprof';
-            self::$extensionFlags = (version_compare(phpversion('xhprof'), '0.9.7') >= 0) ? (self::EXT_LAYERS | self::EXT_FATAL) : 0;
             self::$customVars['xhpv'] = 'xhp-' . phpversion('xhprof');
         } else if (function_exists('uprofiler_enable')) {
             self::$extensionPrefix = 'uprofiler';
             self::$customVars['xhpv'] = 'up-' . phpversion('uprofiler');
-        } else {
-            return;
         }
     }
 
