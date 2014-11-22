@@ -203,13 +203,11 @@ class Profiler
             return;
         }
 
-        $apiKey = $apiKey ?: ini_get("qafooprofiler.api_key");
-        $apiKey = isset($_SERVER['QAFOOPROFILER_APIKEY']) ? $_SERVER['QAFOOPROFILER_APIKEY'] : $apiKey;
+        $configApiKey = isset($_SERVER['QAFOOPROFILER_APIKEY']) ? $_SERVER['QAFOOPROFILER_APIKEY'] : ini_get("qafooprofiler.api_key");
+        $apiKey = $apiKey ?: $configApiKey;
 
-        if ($sampleRate < 100) {
-            $sampleRate = $sampleRate ?: ini_get("qafooprofiler.sample_rate");
-            $sampleRate = isset($_SERVER['QAFOOPROFILER_SAMPLERATE']) ? intval($_SERVER['QAFOOPROFILER_SAMPLERATE']) : $sampleRate;
-        }
+        $configSampleRate = isset($_SERVER['QAFOOPROFILER_SAMPLERATE']) ? intval($_SERVER['QAFOOPROFILER_SAMPLERATE']) : ini_get("qafooprofiler.sample_rate");
+        $sampleRate = $sampleRate ?: $configSampleRate;
 
         if (strlen((string)$apiKey) === 0) {
             return;
