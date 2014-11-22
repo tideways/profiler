@@ -160,7 +160,7 @@ class Profiler
      * WARNING: This method can cause huge performance impact on production
      * setups.
      */
-    public static function startDevelopment($apiKey, array $options = array())
+    public static function startDevelopment($apiKey = null, array $options = array())
     {
         self::start($apiKey, 100, $options);
     }
@@ -186,7 +186,7 @@ class Profiler
      * 1. Second parameter $sampleRate to start() method.
      * 2. _qprofiler Query Parameter (string key is deprecated or array)
      * 3. Cookie QAFOO_PROFILER_SESSION
-     * 4. QAFOO_PROFILER_SAMPLERATE environment variable.
+     * 4. QAFOOPROFILER_SAMPLERATE environment variable.
      *
      * start() automatically invokes a register shutdown handler that stops and
      * transmits the profiling data to the local daemon for further processing.
@@ -197,17 +197,21 @@ class Profiler
      *
      * @return void
      */
-    public static function start($apiKey, $sampleRate = 20, array $options = array())
+    public static function start($apiKey = null, $sampleRate = null, array $options = array())
     {
         if (self::$started) {
             return;
         }
 
-        if (strlen($apiKey) === 0) {
-            return;
+        $apiKey = $apiKey ?: ini_get("qafooprofiler.api_key");
+        $apiKey = isset($_SERVER['QAFOOPROFILER_APIKEY']) ? $_SERVER['QAFOOPROFILER_APIKEY'] : $apiKey;
+
+        if ($sampleRate < 100) {
+            $sampleRate = $sampleRate ?: ini_get("qafooprofiler.sample_rate");
+            $sampleRate = isset($_SERVER['QAFOOPROFILER_SAMPLERATE']) ? intval($_SERVER['QAFOOPROFILER_SAMPLERATE']) : $sampleRate;
         }
 
-        if (isset($_SERVER['QAFOO_PROFILER_DISABLED']) && $_SERVER['QAFOO_PROFILER_DISABLED']) {
+        if (strlen((string)$apiKey) === 0) {
             return;
         }
 
@@ -217,7 +221,6 @@ class Profiler
             return;
         }
 
-        $sampleRate = isset($_SERVER['QAFOO_PROFILER_SAMPLERATE']) ? intval($_SERVER['QAFOO_PROFILER_SAMPLERATE']) : $sampleRate;
         $flags = isset($_SERVER['QAFOO_PROFILER_FLAGS']) ? intval($_SERVER['QAFOO_PROFILER_FLAGS']) : 0;
 
         self::$profiling = self::decideProfiling($sampleRate);
@@ -231,6 +234,18 @@ class Profiler
 
             if (self::$framework) {
                 $options['transaction_function'] = self::$framework;
+            }
+
+            if (!isset($options['ignore_functions'])) {
+                $options['ignore_functions'] = array(
+                    'call_user_func',
+                    'call_user_func_array',
+                    'array_filter',
+                    'array_map',
+                    'array_reduce',
+                    'array_walk',
+                    'array_walk_recursive',
+                );
             }
 
             $enable = self::$extensionPrefix . '_enable';

@@ -4,14 +4,20 @@
         <concat destfile="QafooProfiler.php" overwrite="true">
             <header filtering="no" trimleading="yes">&lt;?php
 namespace QafooLabs\Profiler;
+
+if (class_exists('QafooLabs\Profiler')) {
+    return;
+}
+
             </header>
             <path>
-                <filelist dir="src/main/QafooLabs">
-                    <file name="Profiler/Backend.php" />
-                    <file name="Profiler/CurlBackend.php" />
-                    <file name="Profiler/NetworkBackend.php" />
-                    <file name="Profiler/SqlAnonymizer.php" />
-                    <file name="Profiler.php" />
+                <filelist dir="src">
+                    <file name="main/QafooLabs/Profiler/Backend.php" />
+                    <file name="main/QafooLabs/Profiler/CurlBackend.php" />
+                    <file name="main/QafooLabs/Profiler/NetworkBackend.php" />
+                    <file name="main/QafooLabs/Profiler/SqlAnonymizer.php" />
+                    <file name="main/QafooLabs/Profiler.php" />
+                    <file name="scripts/auto_start.php" />
                 </filelist>
             </path>
             <filterchain>
