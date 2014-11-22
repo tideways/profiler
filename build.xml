@@ -5,10 +5,6 @@
             <header filtering="no" trimleading="yes">&lt;?php
 namespace QafooLabs\Profiler;
 
-if (class_exists('QafooLabs\Profiler')) {
-    return;
-}
-
             </header>
             <path>
                 <filelist dir="src">
