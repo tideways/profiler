@@ -156,13 +156,18 @@ class Profiler
      * Start profiling in development mode.
      *
      * This will always generate a full profile and send it to the profiler.
+     * It adds a correlation id that forces the profile into "developer"
+     * traces and activates the memory profiling as well.
      *
-     * WARNING: This method can cause huge performance impact on production
-     * setups.
+     * WARNING: This method can cause huge performance impact on production setups.
      */
     public static function startDevelopment($apiKey = null, array $options = array())
     {
-        self::start($apiKey, 100, $options);
+        self::start($apiKey, 100, $options, 4);
+
+        if (!self::$correlationId) {
+            self::$correlationId = "dev-trace";
+        }
     }
 
     /**
@@ -194,10 +199,11 @@ class Profiler
      * @param string            $apiKey Application key can be found in "Settings" tab of Profiler UI
      * @param int               $sampleRate Sample rate in full percent (1= 1%, 20 = 20%). Defaults to every fifth request
      * @param array             $options XHProf options.
+     * @param int               $flags
      *
      * @return void
      */
-    public static function start($apiKey = null, $sampleRate = null, array $options = array())
+    public static function start($apiKey = null, $sampleRate = null, array $options = array(), $flags = 0)
     {
         if (self::$started) {
             return;
@@ -218,8 +224,6 @@ class Profiler
         if (!self::$extensionPrefix) {
             return;
         }
-
-        $flags = isset($_SERVER['QAFOO_PROFILER_FLAGS']) ? intval($_SERVER['QAFOO_PROFILER_FLAGS']) : 0;
 
         self::$profiling = self::decideProfiling($sampleRate);
 
