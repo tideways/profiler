@@ -8,15 +8,15 @@ if (ini_get("qafooprofiler.auto_start") || isset($_SERVER['QAFOOPROFILER_AUTO_ST
          * configured in INI or ENV variable.
          */
         if (ini_get("qafooprofiler.transaction_name")) {
-            QafooLabs\Profiler::detectFrameworkTransaction(ini_get("qafooprofiler.transaction_name"));
+            \QafooLabs\Profiler::detectFrameworkTransaction(ini_get("qafooprofiler.transaction_name"));
         } else if (isset($_SERVER['QAFOOPROFILER_TRANSACTION_NAME'])) {
-            QafooLabs\Profiler::detectFrameworkTransaction($_SERVER['QAFOOPROFILER_TRANSACTION_NAME']);
+            \QafooLabs\Profiler::detectFrameworkTransaction($_SERVER['QAFOOPROFILER_TRANSACTION_NAME']);
         }
-        QafooLabs\Profiler::start();
+        \QafooLabs\Profiler::start();
     } else if (php_sapi_name() === "cli" && !empty($_SERVER['QAFOO_PROFILER_START'])) {
-        QafooLabs\Profiler::startDevelopment();
+        \QafooLabs\Profiler::startDevelopment();
 
         $transactionName = "cli:" . basename($argv[0]);
-        QafooLabs\Profiler::setTransactionName($transactionName);
+        \QafooLabs\Profiler::setTransactionName($transactionName);
     }
 }
