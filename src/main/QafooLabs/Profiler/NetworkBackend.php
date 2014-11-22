@@ -18,6 +18,20 @@ class NetworkBackend implements Backend
     const TYPE_PROFILE = 'profile';
     const TYPE_ERROR = 'error';
 
+    private $socketFile;
+    private $udp;
+
+    public function __construct($socketFile = "/tmp/qprofd.sock", $udp = "127.0.0.1:8135")
+    {
+        $this->socketFile = $socketFile;
+        $this->udp = $udp;
+    }
+
+    public static function ignoreErrorsHandler($errno, $errstr, $errfile, $errline)
+    {
+        // ignore all errors!
+    }
+
     public function storeProfile(array $data)
     {
         $this->storeThroughFileSocket(self::TYPE_PROFILE, $data);
@@ -25,28 +39,34 @@ class NetworkBackend implements Backend
 
     private function storeThroughFileSocket($dataType, array $data)
     {
-        $fp = @stream_socket_client("unix:///tmp/qprofd.sock");
+        set_error_handler(array(__CLASS__, "ignoreErrorsHandler"));
+        $fp = stream_socket_client("unix://" . $this->socketFile);
 
         if ($fp == false) {
+            restore_error_handler();
             return;
         }
 
         stream_set_timeout($fp, 0, 10000); // 10 milliseconds max
-        @fwrite($fp, json_encode(array('type' => $dataType, 'payload' => $data)));
+        fwrite($fp, json_encode(array('type' => $dataType, 'payload' => $data)));
         fclose($fp);
+        restore_error_handler();
     }
 
     public function storeMeasurement(array $data)
     {
-        $fp = @stream_socket_client("udp://127.0.0.1:8135");
+        set_error_handler(array(__CLASS__, "ignoreErrorsHandler"));
+        $fp = stream_socket_client("udp://" . $this->udp);
 
         if ($fp == false) {
+            restore_error_handler();
             return;
         }
 
         stream_set_timeout($fp, 0, 200);
-        @fwrite($fp, json_encode($data, JSON_FORCE_OBJECT));
+        fwrite($fp, json_encode($data, JSON_FORCE_OBJECT));
         fclose($fp);
+        restore_error_handler();
     }
 
     public function storeError(array $data)
