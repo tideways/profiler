@@ -102,6 +102,19 @@ class Profiler
             $argumentFunctions[] = 'Smarty_Internal_TemplateBase::fetch';
         }
 
+        if (version_compare(phpversion("qafooprofiler"), "1.3.0") >= 0) {
+            $argumentFunctions[] = 'Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch';
+            $argumentFunctions[] = 'Doctrine\\Common\\EventManager::dispatchEvent';
+            $argumentFunctions[] = 'Enlight_Event_EventManager::filter';
+            $argumentFunctions[] = 'Enlight_Event_EventManager::notify';
+            $argumentFunctions[] = 'Enlight_Event_EventManager::notifyUntil';
+            $argumentFunctions[] = 'Zend\\EventManager\\EventManager::trigger';
+            $argumentFunctions[] = 'do_action';
+            $argumentFunctions[] = 'apply_filters';
+            $argumentFunctions[] = 'drupal_alter';
+            $argumentFunctions[] = 'Mage::dispatchEvent';
+        }
+
         return $argumentFunctions;
     }
 
