@@ -54,6 +54,8 @@ namespace QafooLabs;
  */
 class Profiler
 {
+    const VERSION = '1.3.0';
+
     const EXT_FATAL            = 1;
     const EXT_LAYERS           = 2;
     const EXT_EXCEPTION        = 4;
