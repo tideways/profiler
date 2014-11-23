@@ -251,8 +251,8 @@ class Profiler
                 $options['transaction_function'] = self::$framework;
             }
 
-            if (!isset($options['ignore_functions'])) {
-                $options['ignore_functions'] = array(
+            if (!isset($options['ignored_functions'])) {
+                $options['ignored_functions'] = array(
                     'call_user_func',
                     'call_user_func_array',
                     'array_filter',
