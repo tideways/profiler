@@ -21,7 +21,7 @@ class NetworkBackend implements Backend
     private $socketFile;
     private $udp;
 
-    public function __construct($socketFile = "/tmp/qprofd.sock", $udp = "127.0.0.1:8135")
+    public function __construct($socketFile = "unix:///tmp/qprofd.sock", $udp = "127.0.0.1:8135")
     {
         $this->socketFile = $socketFile;
         $this->udp = $udp;
@@ -40,7 +40,7 @@ class NetworkBackend implements Backend
     private function storeThroughFileSocket($dataType, array $data)
     {
         set_error_handler(array(__CLASS__, "ignoreErrorsHandler"));
-        $fp = stream_socket_client("unix://" . $this->socketFile);
+        $fp = stream_socket_client($this->socketFile);
 
         if ($fp == false) {
             restore_error_handler();

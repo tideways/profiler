@@ -363,7 +363,10 @@ class Profiler
         }
 
         if (self::$backend === null) {
-            self::$backend = new Profiler\NetworkBackend();
+            self::$backend = new Profiler\NetworkBackend(
+                ini_get('qafooprofiler.connection') ?: 'unix:///tmp/qprofd.sock',
+                ini_get('qafooprofiler.udp_connection') ?: '127.0.0.1:8135'
+            );
         }
 
         self::$profiling = false;
