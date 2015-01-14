@@ -262,6 +262,7 @@ class Profiler
                     'array_reduce',
                     'array_walk',
                     'array_walk_recursive',
+                    'Symfony\Component\DependencyInjection\Container::get',
                 );
             }
 
