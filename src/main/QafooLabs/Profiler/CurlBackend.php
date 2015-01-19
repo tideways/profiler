@@ -7,12 +7,18 @@ class CurlBackend implements Backend
     private $certificationFile;
     private $connectionTimeout;
     private $timeout;
+    private $proxy;
 
     public function __construct($certificationFile = null, $connectionTimeout = 3, $timeout = 3)
     {
         $this->certificationFile = $certificationFile;
         $this->connectionTimeout = $connectionTimeout;
         $this->timeout = $timeout;
+    }
+
+    public function setProxy($proxy)
+    {
+        $this->proxy = $proxy;
     }
 
     public function storeProfile(array $data)
@@ -75,6 +81,10 @@ class CurlBackend implements Backend
         } else {
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+        }
+
+        if ($this->proxy) {
+            curl_setopt($ch, CURLOPT_PROXY, $this->proxy);
         }
 
         $headers = array(
