@@ -4,15 +4,29 @@ namespace QafooLabs\Profiler;
 
 class CurlBackend implements Backend
 {
+    const API_HOSTNAME = 'profiler.qafoolabs.com';
+
     private $certificationFile;
     private $connectionTimeout;
     private $timeout;
+    private $proxy;
 
     public function __construct($certificationFile = null, $connectionTimeout = 3, $timeout = 3)
     {
         $this->certificationFile = $certificationFile;
         $this->connectionTimeout = $connectionTimeout;
         $this->timeout = $timeout;
+        $this->proxy = $this->detectProxySettings();
+    }
+
+    public function setProxy($proxy)
+    {
+        $this->proxy = $proxy;
+    }
+
+    public function getProxy()
+    {
+        return $this->proxy;
     }
 
     public function storeProfile(array $data)
@@ -77,6 +91,10 @@ class CurlBackend implements Backend
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
         }
 
+        if ($this->proxy) {
+            curl_setopt($ch, CURLOPT_PROXY, $this->proxy);
+        }
+
         $headers = array(
             "Content-Type: application/json+gzip",
             "User-Agent: QafooLabs Profiler Collector DevMode"
@@ -97,5 +115,22 @@ class CurlBackend implements Backend
         if (curl_exec($ch) === false) {
             syslog(LOG_WARNING, "Qafoo Profiler DevMode cURL failed: " . curl_error($ch));
         }
+    }
+
+    private function detectProxySettings()
+    {
+        $proxy = getenv('https_proxy') ?: getenv('http_proxy');
+        if (!$proxy) {
+            return null;
+        }
+
+        $noProxy = explode(',', getenv('no_proxy'));
+        foreach ($noProxy as $current) {
+            if ($current === self::API_HOSTNAME || (substr($current, 0, 1) === '.' && substr(self::API_HOSTNAME, -strlen($current)) === $current)) {
+                return null;
+            }
+        }
+
+        return $proxy;
     }
 }
