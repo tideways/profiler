@@ -82,6 +82,19 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('bar', \QafooLabs\Profiler::getCustomVariable("foo"));
     }
 
+    public function testDefaultCustomVariables()
+    {
+        $_SERVER['SERVER_ADDR'] = '127.0.0.1';
+        $_SERVER['REQUEST_URI'] = '/foo/bar?baz';
+        $_SERVER['HTTPS'] = 'on';
+        $_SERVER['REQUEST_METHOD'] = 'PUT';
+
+        \QafooLabs\Profiler::setDefaultCustomVariables();
+
+        $this->assertEquals('PUT', \QafooLabs\Profiler::getCustomVariable("method"));
+        $this->assertEquals('https://127.0.0.1/foo/bar', \QafooLabs\Profiler::getCustomVariable("url"));
+    }
+
     private function createBackend()
     {
         $backend = $this->getMock('QafooLabs\Profiler\Backend');

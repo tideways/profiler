@@ -607,19 +607,28 @@ class Profiler
         );
     }
 
+    public static function setDefaultCustomVariables()
+    {
+        if (isset($_SERVER['REQUEST_METHOD']) && !isset(self::$customVars['method'])) {
+            self::$customVars['method'] = $_SERVER["REQUEST_METHOD"];
+        }
+
+        if (isset($_SERVER['REQUEST_URI']) && !isset(self::$customVars['url'])) {
+            if (isset($_SERVER['HTTP_HOST'])) {
+                self::$customVars['url'] = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . self::getRequestUri();
+            } elseif(isset($_SERVER['SERVER_ADDR'])) {
+                self::$customVars['url'] = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['SERVER_ADDR'] . self::getRequestUri();
+            }
+        }
+    }
+
     private static function storeProfile($operationName, $data, $customTimers)
     {
         if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
             return;
         }
 
-        if (isset($_SERVER['REQUEST_METHOD']) && !isset(self::$customVars['method'])) {
-            self::$customVars['method'] = $_SERVER["REQUEST_METHOD"];
-        }
-
-        if (isset($_SERVER['REQUEST_URI']) && !isset(self::$customVars['url'])) {
-            self::$customVars['url'] = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . self::getRequestUri();
-        }
+        self::setDefaultCustomVariables();
 
         self::$backend->storeProfile(array(
             "uid" => self::getProfileTraceUuid(),
