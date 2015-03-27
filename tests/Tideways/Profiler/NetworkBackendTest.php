@@ -1,6 +1,6 @@
 <?php
 
-namespace QafooLabs\Profiler;
+namespace Tideways\Profiler;
 
 class NetworkBackendTest extends \PHPUnit_Framework_TestCase
 {

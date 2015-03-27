@@ -1,10 +1,21 @@
 <?php
+/**
+ * Tideways
+ *
+ * LICENSE
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this package in the file LICENSE.txt.
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to kontakt@beberlei.de so I can send you a copy immediately.
+ */
 
-namespace QafooLabs\Profiler;
+namespace Tideways\Profiler;
 
 class CurlBackend implements Backend
 {
-    const API_HOSTNAME = 'profiler.qafoolabs.com';
+    const API_HOSTNAME = 'app.tideways.io';
 
     private $certificationFile;
     private $connectionTimeout;
@@ -38,7 +49,7 @@ class CurlBackend implements Backend
         $data['server'] = gethostname();
 
         $this->request(
-            "https://profiler.qafoolabs.com/api/profile/create",
+            "https://app.tideways.io/api/profile/create",
             $data,
             $data['apiKey'],
             $data['op']
@@ -47,7 +58,7 @@ class CurlBackend implements Backend
 
     public function storeMeasurement(array $data)
     {
-        $this->request("https://profiler.qafoolabs.com/api/performance", array(
+        $this->request("https://app.tideways.io/api/performance", array(
             'server' => gethostname(),
             'time' => time(),
             'apps' => array(
@@ -97,7 +108,7 @@ class CurlBackend implements Backend
 
         $headers = array(
             "Content-Type: application/json+gzip",
-            "User-Agent: QafooLabs Profiler Collector DevMode"
+            "User-Agent: Tideways Collector DevMode"
         );
 
         if ($apiKey) {
@@ -113,7 +124,7 @@ class CurlBackend implements Backend
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
         if (curl_exec($ch) === false) {
-            syslog(LOG_WARNING, "Qafoo Profiler DevMode cURL failed: " . curl_error($ch));
+            syslog(LOG_WARNING, "Tideways DevMode cURL failed: " . curl_error($ch));
         }
     }
 

@@ -1,8 +1,8 @@
 {
-    "name": "qafoolabs/profiler",
-    "description": "Simple library that wraps Xhprof profile collection and sends to Qafoo Profiler",
+    "name": "tideways/profiler",
+    "description": "Client library that wraps Xhprof profile collection and sends to Tideways",
     "license": "MIT",
     "autoload": {
-        "psr-0": {"QafooLabs\\Profiler":"src/main"}
+        "psr-0": {"Tideways\\Profiler":"src/main"}
     }
 }

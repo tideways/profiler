@@ -1,6 +1,6 @@
 <?php
 /**
- * Qafoo Profiler Client
+ * Tideways
  *
  * LICENSE
  *
@@ -11,7 +11,7 @@
  * to kontakt@beberlei.de so I can send you a copy immediately.
  */
 
-namespace QafooLabs\Profiler;
+namespace Tideways\Profiler;
 
 /**
  * Anonymize SQL statements.

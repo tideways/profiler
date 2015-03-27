@@ -1,6 +1,6 @@
 <?php
 /**
- * QafooLabs Profiler
+ * Tideways
  *
  * LICENSE
  *
@@ -11,7 +11,7 @@
  * to kontakt@beberlei.de so I can send you a copy immediately.
  */
 
-namespace QafooLabs\Profiler;
+namespace Tideways\Profiler;
 
 class NetworkBackend implements Backend
 {

@@ -1,6 +1,6 @@
 <?php
 /**
- * QafooLabs Profiler
+ * Tideways
  *
  * LICENSE
  *
@@ -11,10 +11,10 @@
  * to kontakt@beberlei.de so I can send you a copy immediately.
  */
 
-namespace QafooLabs;
+namespace Tideways;
 
 /**
- * QafooLabs Profiler PHP API
+ * Tideways PHP API
  *
  * Contains all methods to gather measurements and profile data with
  * Xhprof and send to local Profiler Collector Daemon.
@@ -25,32 +25,32 @@ namespace QafooLabs;
  *
  * @example
  *
- *      QafooLabs\Profiler::start($apiKey);
- *      QafooLabs\Profiler::setTransactionName("my tx name");
+ *      Tideways\Profiler::start($apiKey);
+ *      Tideways\Profiler::setTransactionName("my tx name");
  *
  * Calling the {@link stop()} method is not necessary as it is
  * called automatically from a shutdown handler, if you are timing
  * worker processes however it is necessary:
  *
- *      QafooLabs\Profiler::stop();
+ *      Tideways\Profiler::stop();
  *
  * The method {@link setTransactionName} is required, failing to call
  * it will result in discarding of the data. You can automatically
  * guess a name using the following snippet:
  *
- *      QafooLabs\Profiler::useRequestAsTransactionName();
+ *      Tideways\Profiler::useRequestAsTransactionName();
  *
  * If you want to collect custom timing data you can use for SQL:
  *
  *      $sql = "SELECT 1";
- *      $id = QafooLabs\Profiler::startSqlCustomTimer($sql);
+ *      $id = Tideways\Profiler::startSqlCustomTimer($sql);
  *      mysql_query($sql);
- *      QafooLabs\Profiler::stopCustomTimer($id);
+ *      Tideways\Profiler::stopCustomTimer($id);
  *
  * Or for any other timing data:
  *
- *      $id = QafooLabs\Profiler::startCustomTimer('solr', 'q=foo');
- *      QafooLabs\Profiler::stopCustomTimer($id);
+ *      $id = Tideways\Profiler::startCustomTimer('solr', 'q=foo');
+ *      Tideways\Profiler::stopCustomTimer($id);
  */
 class Profiler
 {
@@ -99,12 +99,12 @@ class Profiler
             'Twig_Template::render',
         );
 
-        if (version_compare(phpversion("qafooprofiler"), "1.2.2") >= 0) {
+        if (version_compare(phpversion("tideways"), "1.2.2") >= 0) {
             $argumentFunctions[] = 'Smarty::fetch';
             $argumentFunctions[] = 'Smarty_Internal_TemplateBase::fetch';
         }
 
-        if (version_compare(phpversion("qafooprofiler"), "1.3.0") >= 0) {
+        if (version_compare(phpversion("tideways"), "1.3.0") >= 0) {
             $argumentFunctions[] = 'Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch';
             $argumentFunctions[] = 'Doctrine\\Common\\EventManager::dispatchEvent';
             $argumentFunctions[] = 'Enlight_Event_EventManager::filter';
@@ -156,13 +156,13 @@ class Profiler
     }
 
     /**
-     * Instruct Qafoo Profiler to automatically detect transaction names during profiling.
+     * Instruct Tideways Profiler to automatically detect transaction names during profiling.
      *
-     * @param string $framework one of the QafooLabs\Profiler::FRAMEWORK_* constants.
+     * @param string $framework one of the Tideways\Profiler::FRAMEWORK_* constants.
      */
     public static function detectFrameworkTransaction($framework)
     {
-        if (extension_loaded('qafooprofiler')) {
+        if (extension_loaded('tideways')) {
             self::$framework = $framework;
         }
     }
@@ -205,8 +205,8 @@ class Profiler
      *
      * 1. Second parameter $sampleRate to start() method.
      * 2. _qprofiler Query Parameter (string key is deprecated or array)
-     * 3. Cookie QAFOO_PROFILER_SESSION
-     * 4. QAFOOPROFILER_SAMPLERATE environment variable.
+     * 3. Cookie TIDEWAYS_SESSION
+     * 4. TIDEWAYS_SAMPLERATE environment variable.
      *
      * start() automatically invokes a register shutdown handler that stops and
      * transmits the profiling data to the local daemon for further processing.
@@ -224,10 +224,10 @@ class Profiler
             return;
         }
 
-        $configApiKey = isset($_SERVER['QAFOOPROFILER_APIKEY']) ? $_SERVER['QAFOOPROFILER_APIKEY'] : ini_get("qafooprofiler.api_key");
+        $configApiKey = isset($_SERVER['TIDEWAYS_APIKEY']) ? $_SERVER['TIDEWAYS_APIKEY'] : ini_get("tideways.api_key");
         $apiKey = $apiKey ?: $configApiKey;
 
-        $configSampleRate = isset($_SERVER['QAFOOPROFILER_SAMPLERATE']) ? intval($_SERVER['QAFOOPROFILER_SAMPLERATE']) : ini_get("qafooprofiler.sample_rate");
+        $configSampleRate = isset($_SERVER['TIDEWAYS_SAMPLERATE']) ? intval($_SERVER['TIDEWAYS_SAMPLERATE']) : ini_get("tideways.sample_rate");
         $sampleRate = $sampleRate ?: $configSampleRate;
 
         if (strlen((string)$apiKey) === 0) {
@@ -243,7 +243,7 @@ class Profiler
         self::$profiling = self::decideProfiling($sampleRate);
 
         if (self::$profiling == true) {
-            if (!isset($_SERVER['QAFOO_PROFILER_ENABLE_ARGUMENTS']) || $_SERVER['QAFOO_PROFILER_ENABLE_ARGUMENTS'] == true) {
+            if (!isset($_SERVER['TIDEWAYS_ENABLE_ARGUMENTS']) || $_SERVER['TIDEWAYS_ENABLE_ARGUMENTS'] == true) {
                 if (!isset($options['argument_functions'])) {
                     $options['argument_functions'] = self::getDefaultArgumentFunctions();
                 }
@@ -275,7 +275,7 @@ class Profiler
             return;
         }
 
-        if (!isset($_SERVER['QAFOO_PROFILER_ENABLE_LAYERS']) || !$_SERVER['QAFOO_PROFILER_ENABLE_LAYERS']) {
+        if (!isset($_SERVER['TIDEWAYS_ENABLE_LAYERS']) || !$_SERVER['TIDEWAYS_ENABLE_LAYERS']) {
             $options['layers'] = array();
         } else if (!isset($options['layers'])) {
             $options['layers'] = self::getDefaultLayerFunctions();
@@ -285,7 +285,7 @@ class Profiler
             return;
         }
 
-        qafooprofiler_layers_enable($options['layers'], self::$framework);
+        tideways_layers_enable($options['layers'], self::$framework);
 
         self::$sampling = true;
     }
@@ -305,17 +305,17 @@ class Profiler
 
         $vars = array();
 
-        if (isset($_SERVER['HTTP_X_QAFOO_PROFILER']) && is_string($_SERVER['HTTP_X_QAFOO_PROFILER'])) {
-            parse_str($_SERVER['HTTP_X_QAFOO_PROFILER'], $vars);
-        } else if (isset($_SERVER['QAFOO_PROFILER_SESSION']) && is_string($_SERVER['QAFOO_PROFILER_SESSION'])) {
-            parse_str($_SERVER['QAFOO_PROFILER_SESSION'], $vars);
-        } else if (isset($_COOKIE['QAFOO_PROFILER_SESSION']) && is_string($_COOKIE['QAFOO_PROFILER_SESSION'])) {
-            parse_str($_COOKIE['QAFOO_PROFILER_SESSION'], $vars);
+        if (isset($_SERVER['HTTP_X_TIDEWAYS_PROFILER']) && is_string($_SERVER['HTTP_X_TIDEWAYS_PROFILER'])) {
+            parse_str($_SERVER['HTTP_X_TIDEWAYS_PROFILER'], $vars);
+        } else if (isset($_SERVER['TIDEWAYS_SESSION']) && is_string($_SERVER['TIDEWAYS_SESSION'])) {
+            parse_str($_SERVER['TIDEWAYS_SESSION'], $vars);
+        } else if (isset($_COOKIE['TIDEWAYS_SESSION']) && is_string($_COOKIE['TIDEWAYS_SESSION'])) {
+            parse_str($_COOKIE['TIDEWAYS_SESSION'], $vars);
         } else if (isset($_GET['_qprofiler']) && is_array($_GET['_qprofiler'])) {
             $vars = $_GET['_qprofiler'];
         }
 
-        if (isset($_SERVER['QAFOO_PROFILER_DISABLE_SESSIONS']) && $_SERVER['QAFOO_PROFILER_DISABLE_SESSIONS']) {
+        if (isset($_SERVER['TIDEWAYS_DISABLE_SESSIONS']) && $_SERVER['TIDEWAYS_DISABLE_SESSIONS']) {
             $vars = array();
         }
 
@@ -359,14 +359,14 @@ class Profiler
     private static function init($apiKey)
     {
         if (self::$shutdownRegistered == false) {
-            register_shutdown_function(array("QafooLabs\\Profiler", "shutdown"));
+            register_shutdown_function(array("Tideways\\Profiler", "shutdown"));
             self::$shutdownRegistered = true;
         }
 
         if (self::$backend === null) {
             self::$backend = new Profiler\NetworkBackend(
-                ini_get('qafooprofiler.connection') ?: 'unix:///tmp/qprofd.sock',
-                ini_get('qafooprofiler.udp_connection') ?: '127.0.0.1:8135'
+                ini_get('tideways.connection') ?: 'unix:///var/run/tideways/tidewaysd.sock',
+                ini_get('tideways.udp_connection') ?: '127.0.0.1:8135'
             );
         }
 
@@ -381,13 +381,13 @@ class Profiler
         self::$started = microtime(true);
         self::$uid = null;
 
-        if (function_exists('qafooprofiler_enable')) {
-            $version = phpversion('qafooprofiler');
+        if (function_exists('tideways_enable')) {
+            $version = phpversion('tideways');
 
-            self::$extensionPrefix = 'qafooprofiler';
+            self::$extensionPrefix = 'tideways';
             self::$extensionFlags = (self::EXT_EXCEPTION | self::EXT_FATAL | self::EXT_TRANSACTION_NAME);
             self::$extensionFlags |= (version_compare($version, "1.2.2") >= 0) ? self::EXT_LAYERS : 0;
-            self::$customVars['xhpv'] = 'qp-' . $version;
+            self::$customVars['xhpv'] = 'tw-' . $version;
         } else if (function_exists('xhprof_enable')) {
             self::$extensionPrefix = 'xhprof';
             self::$customVars['xhpv'] = 'xhp-' . phpversion('xhprof');
@@ -457,7 +457,7 @@ class Profiler
      *
      * Data passed as description it not anonymized. It is your responsibility to
      * strip the data of any input that might cause private data to be sent to
-     * Qafoo Profiler service.
+     * Tideways service.
      *
      * @param string $group
      * @param string $description
@@ -558,7 +558,7 @@ class Profiler
         $sampling = self::$sampling;
 
         if (self::$operationName === 'default' && (self::$extensionFlags & self::EXT_TRANSACTION_NAME) > 0) {
-            self::$operationName = qafooprofiler_transaction_name() ?: 'default';
+            self::$operationName = tideways_transaction_name() ?: 'default';
         }
 
         if (self::$sampling || self::$profiling) {
@@ -820,7 +820,7 @@ class Profiler
         }
 
         return sprintf(
-            '<div id="QafooLabs-Profiler-Profile-Id" data-trace-id="%s" style="display:none !important;" aria-hidden="true"></div>',
+            '<div id="Tideways-Profiler-Profile-Id" data-trace-id="%s" style="display:none !important;" aria-hidden="true"></div>',
             self::getProfileTraceUuid()
         );
     }

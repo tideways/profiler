@@ -1,6 +1,6 @@
 <?php
 
-namespace QafooLabs\Profiler;
+namespace Tideways\Profiler;
 
 class CurlBackendTest extends \PHPUnit_Framework_TestCase
 {

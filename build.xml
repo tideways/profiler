@@ -1,24 +1,24 @@
 <?xml version="1.0" ?>
-<project name="Qafoo Profiler Client">
+<project name="Tideways PHP Client">
     <target name="generate-single-file">
-        <concat destfile="QafooProfiler.php" overwrite="true">
+        <concat destfile="Tideways.php" overwrite="true">
             <header filtering="no" trimleading="yes">&lt;?php
-namespace QafooLabs\Profiler;
+namespace Tideways\Profiler;
 
             </header>
             <path>
                 <filelist dir="src">
-                    <file name="main/QafooLabs/Profiler/Backend.php" />
-                    <file name="main/QafooLabs/Profiler/CurlBackend.php" />
-                    <file name="main/QafooLabs/Profiler/NetworkBackend.php" />
-                    <file name="main/QafooLabs/Profiler/SqlAnonymizer.php" />
-                    <file name="main/QafooLabs/Profiler.php" />
+                    <file name="main/Tideways/Profiler/Backend.php" />
+                    <file name="main/Tideways/Profiler/CurlBackend.php" />
+                    <file name="main/Tideways/Profiler/NetworkBackend.php" />
+                    <file name="main/Tideways/Profiler/SqlAnonymizer.php" />
+                    <file name="main/Tideways/Profiler.php" />
                     <file name="scripts/auto_start.php" />
                 </filelist>
             </path>
             <filterchain>
                 <linecontains negate="true">
-                    <contains value="namespace QafooLabs\Profiler;" />
+                    <contains value="namespace Tideways\Profiler;" />
                 </linecontains>
                 <linecontains negate="true">
                     <contains value="&lt;?php" />
