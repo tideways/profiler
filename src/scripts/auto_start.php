@@ -8,10 +8,10 @@ if (ini_get("tideways.auto_start") || isset($_SERVER["TIDEWAYS_AUTO_START"])) {
              * In Web context we auto start with the framework transaction name
              * configured in INI or ENV variable.
              */
-            if (ini_get("tideways.transaction_function")) {
-                \Tideways\Profiler::detectFrameworkTransaction(ini_get("tideways.transaction_function"));
-            } else if (isset($_SERVER['TIDEWAYS_TRANSACTION_FUNCTION'])) {
-                \Tideways\Profiler::detectFrameworkTransaction($_SERVER["TIDEWAYS_TRANSACTION_FUNCTION"]);
+            if (ini_get("tideways.framework")) {
+                \Tideways\Profiler::detectFramework(ini_get("tideways.framework"));
+            } else if (isset($_SERVER['TIDEWAYS_FRAMEWORK'])) {
+                \Tideways\Profiler::detectFramework($_SERVER["TIDEWAYS_FRAMEWORK"]);
             }
             \Tideways\Profiler::start();
         } else if (php_sapi_name() === "cli" && !empty($_SERVER["TIDEWAYS_SESSION"]) && isset($_SERVER['argv'])) {

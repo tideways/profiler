@@ -61,15 +61,46 @@ class Profiler
     const EXT_EXCEPTION        = 4;
     const EXT_TRANSACTION_NAME = 8;
 
-    const FRAMEWORK_ZEND_FRAMEWORK1 = 'Zend_Controller_Action::dispatch';
-    const FRAMEWORK_ZEND_FRAMEWORK2 = 'Zend\\MVC\\Controller\\ControllerManager::get';
-    const FRAMEWORK_SYMFONY2_COMPONENT = 'Symfony\Component\HttpKernel\Controller\ControllerResolver::createController';
-    const FRAMEWORK_SYMFONY2_FRAMEWORK = 'Symfony\Bundle\FrameworkBundle\Controller\ControllerResolver::createController';
-    const FRAMEWORK_OXID = 'oxView::setClassName';
-    const FRAMEWORK_SHOPWARE = 'Enlight_Controller_Action::dispatch';
-    const FRAMEWORK_WORDPRESS = 'get_query_template';
+    const FRAMEWORK_ZEND_FRAMEWORK1    = 'zend1';
+    const FRAMEWORK_ZEND_FRAMEWORK2    = 'zend2';
+    const FRAMEWORK_SYMFONY2_COMPONENT = 'symfony2c';
+    const FRAMEWORK_SYMFONY2_FRAMEWORK = 'symfony2';
+    const FRAMEWORK_OXID               = 'oxid';
+    const FRAMEWORK_SHOPWARE           = 'shopware';
+    const FRAMEWORK_WORDPRESS          = 'wordpress';
 
-    private static $framework;
+    /**
+     * Default XHProf/Tideways hierachical profiling options.
+     */
+    private static $defaultOptions = array(
+        'ignored_functions' => array(
+            'call_user_func',
+            'call_user_func_array',
+            'array_filter',
+            'array_map',
+            'array_reduce',
+            'array_walk',
+            'array_walk_recursive',
+            'Symfony\Component\DependencyInjection\Container::get',
+        ),
+        'transaction_function' => null,
+        'argument_functions' => array(
+            'PDOStatement::execute',
+            'PDO::exec',
+            'PDO::query',
+            'mysql_query',
+            'mysqli_query',
+            'mysqli::query',
+            'pg_query',
+            'pg_query_params',
+            'pg_execute',
+            'curl_exec',
+            'Twig_Template::render',
+            'Smarty::fetch',
+            'Smarty_Internal_TemplateBase::fetch',
+        ),
+    );
+
     private static $apiKey;
     private static $started = false;
     private static $shutdownRegistered = false;
@@ -85,40 +116,6 @@ class Profiler
     private static $uid;
     private static $extensionPrefix;
     private static $extensionFlags = 0;
-
-    private static function getDefaultArgumentFunctions()
-    {
-        $argumentFunctions = array(
-            'PDOStatement::execute',
-            'PDO::exec',
-            'PDO::query',
-            'mysql_query',
-            'mysqli_query',
-            'mysqli::query',
-            'curl_exec',
-            'Twig_Template::render',
-        );
-
-        if (version_compare(phpversion("tideways"), "1.2.2") >= 0) {
-            $argumentFunctions[] = 'Smarty::fetch';
-            $argumentFunctions[] = 'Smarty_Internal_TemplateBase::fetch';
-        }
-
-        if (version_compare(phpversion("tideways"), "1.3.0") >= 0) {
-            $argumentFunctions[] = 'Symfony\\Component\\EventDispatcher\\EventDispatcher::dispatch';
-            $argumentFunctions[] = 'Doctrine\\Common\\EventManager::dispatchEvent';
-            $argumentFunctions[] = 'Enlight_Event_EventManager::filter';
-            $argumentFunctions[] = 'Enlight_Event_EventManager::notify';
-            $argumentFunctions[] = 'Enlight_Event_EventManager::notifyUntil';
-            $argumentFunctions[] = 'Zend\\EventManager\\EventManager::trigger';
-            $argumentFunctions[] = 'do_action';
-            $argumentFunctions[] = 'apply_filters';
-            $argumentFunctions[] = 'drupal_alter';
-            $argumentFunctions[] = 'Mage::dispatchEvent';
-        }
-
-        return $argumentFunctions;
-    }
 
     private static function getDefaultLayerFunctions()
     {
@@ -158,12 +155,92 @@ class Profiler
     /**
      * Instruct Tideways Profiler to automatically detect transaction names during profiling.
      *
-     * @param string $framework one of the Tideways\Profiler::FRAMEWORK_* constants.
+     * @param string $function - A transaction function name
      */
-    public static function detectFrameworkTransaction($framework)
+    public static function detectFrameworkTransaction($function)
     {
-        if (extension_loaded('tideways')) {
-            self::$framework = $framework;
+        switch ($function) {
+            case 'Zend_Controller_Action::dispatch';
+                return self::detectFramework(self::FRAMEWORK_ZEND_FRAMEWORK1);
+
+            case 'Zend\\MVC\\Controller\\ControllerManager::get';
+                return self::detectFramework(self::FRAMEWORK_ZEND_FRAMEWORK2);
+
+            case 'Symfony\Component\HttpKernel\Controller\ControllerResolver::createController';
+                return self::detectFramework(self::FRAMEWORK_SYMFONY2_COMPONENT);
+
+            case 'Symfony\Bundle\FrameworkBundle\Controller\ControllerResolver::createController';
+                return self::detectFramework(self::FRAMEWORK_SYMFONY2_FRAMEWORK);
+
+            case 'oxView::setClassName';
+                return self::detectFramework(self::FRAMEWORK_OXID);
+
+            case 'Enlight_Controller_Action::dispatch';
+                return self::detectFramework(self::FRAMEWORK_SHOPWARE);
+
+            case 'get_query_template';
+                return self::detectFramework(self::FRAMEWORK_WORDPRESS);
+
+            default:
+                return self::detectFramework($function);
+        }
+    }
+
+    /**
+     * Configure detecting framework transactions and ignoring unnecessary layer calls.
+     *
+     * If the framework is not from the list of known frameworks it is assumed to
+     * be a function name that is the transaction function.
+     *
+     * @param string $framework
+     */
+    public static function detectFramework($framework)
+    {
+        switch ($framework) {
+            case FRAMEWORK_ZEND_FRAMEWORK1:
+                self::$defaultOptions['transaction_function'] = 'Zend_Controller_Action::dispatch';
+                break;
+
+            case FRAMEWORK_ZEND_FRAMEWORK2:
+                self::$defaultOptions['transaction_function'] = 'Zend\\MVC\\Controller\\ControllerManager::get';
+                break;
+
+            case FRAMEWORK_SYMFONY2_COMPONENT:
+                self::$defaultOptions['transaction_function'] = 'Symfony\Component\HttpKernel\Controller\ControllerResolver::createController';
+                break;
+
+            case FRAMEWORK_SYMFONY2_FRAMEWORK:
+                self::$defaultOptions['transaction_function'] = 'Symfony\Bundle\FrameworkBundle\Controller\ControllerResolver::createController';
+                break;
+
+            case FRAMEWORK_OXID:
+                self::$defaultOptions['transaction_function'] = 'oxView::setClassName';
+                break;
+
+            case FRAMEWORK_SHOPWARE:
+                self::$defaultOptions['transaction_function'] = 'Enlight_Controller_Action::dispatch';
+                break;
+
+            case FRAMEWORK_WORDPRESS:
+                self::$defaultOptions['transaction_function'] = 'get_query_template';
+                break;
+
+            default:
+                self::$defaultOptions['transaction_function'] = $framework;
+                break;
+        }
+    }
+
+    /**
+     * Add more ignore functions to profiling options.
+     *
+     * @param array<string> $functionNames
+     * @return void
+     */
+    public static function addIgnoreFunctions(array $functionNames)
+    {
+        foreach ($functionNames as $functionName) {
+            self::$defaultOptions['ignored_functions'][] = $functionName;
         }
     }
 
@@ -213,12 +290,10 @@ class Profiler
      *
      * @param string            $apiKey Application key can be found in "Settings" tab of Profiler UI
      * @param int               $sampleRate Sample rate in full percent (1= 1%, 20 = 20%). Defaults to every fifth request
-     * @param array             $options XHProf options.
-     * @param int               $flags
      *
      * @return void
      */
-    public static function start($apiKey = null, $sampleRate = null, array $options = array(), $flags = 0)
+    public static function start($apiKey = null, $sampleRate = null)
     {
         if (self::$started) {
             return;
@@ -243,31 +318,8 @@ class Profiler
         self::$profiling = self::decideProfiling($sampleRate);
 
         if (self::$profiling == true) {
-            if (!isset($_SERVER['TIDEWAYS_ENABLE_ARGUMENTS']) || $_SERVER['TIDEWAYS_ENABLE_ARGUMENTS'] == true) {
-                if (!isset($options['argument_functions'])) {
-                    $options['argument_functions'] = self::getDefaultArgumentFunctions();
-                }
-            }
-
-            if (self::$framework) {
-                $options['transaction_function'] = self::$framework;
-            }
-
-            if (!isset($options['ignored_functions'])) {
-                $options['ignored_functions'] = array(
-                    'call_user_func',
-                    'call_user_func_array',
-                    'array_filter',
-                    'array_map',
-                    'array_reduce',
-                    'array_walk',
-                    'array_walk_recursive',
-                    'Symfony\Component\DependencyInjection\Container::get',
-                );
-            }
-
             $enable = self::$extensionPrefix . '_enable';
-            $enable($flags, $options); // full profiling mode
+            $enable(0, self::$defaultOptions); // full profiling mode
             return;
         }
 
@@ -275,34 +327,16 @@ class Profiler
             return;
         }
 
-        if (!isset($_SERVER['TIDEWAYS_ENABLE_LAYERS']) || !$_SERVER['TIDEWAYS_ENABLE_LAYERS']) {
-            $options['layers'] = array();
-        } else if (!isset($options['layers'])) {
-            $options['layers'] = self::getDefaultLayerFunctions();
-        }
-
-        if (!$options['layers'] && !self::$framework) {
+        if (!self::$defaultOptions['transaction_function']) {
             return;
         }
 
-        tideways_layers_enable($options['layers'], self::$framework);
-
+        tideways_layers_enable(array(), self::$defaultOptions['transaction_function']);
         self::$sampling = true;
     }
 
     private static function decideProfiling($treshold)
     {
-        // Deprecated method, will be removed soon
-        if (isset($_GET['_qprofiler']) && is_string($_GET['_qprofiler']) && $_GET['_qprofiler'] === md5(self::$apiKey)) {
-            self::$correlationId = 'dev-force'; // make sure Daemon keeps the profile.
-
-            if (isset($_GET['_qpm']) && $_GET['_qpm'] === 'curl') {
-                self::setBackend(new Profiler\CurlBackend());
-            }
-
-            return true;
-        }
-
         $vars = array();
 
         if (isset($_SERVER['HTTP_X_TIDEWAYS_PROFILER']) && is_string($_SERVER['HTTP_X_TIDEWAYS_PROFILER'])) {
@@ -311,8 +345,8 @@ class Profiler
             parse_str($_SERVER['TIDEWAYS_SESSION'], $vars);
         } else if (isset($_COOKIE['TIDEWAYS_SESSION']) && is_string($_COOKIE['TIDEWAYS_SESSION'])) {
             parse_str($_COOKIE['TIDEWAYS_SESSION'], $vars);
-        } else if (isset($_GET['_qprofiler']) && is_array($_GET['_qprofiler'])) {
-            $vars = $_GET['_qprofiler'];
+        } else if (isset($_GET['_tideways']) && is_array($_GET['_tideways'])) {
+            $vars = $_GET['_tideways'];
         }
 
         if (isset($_SERVER['TIDEWAYS_DISABLE_SESSIONS']) && $_SERVER['TIDEWAYS_DISABLE_SESSIONS']) {
@@ -323,10 +357,6 @@ class Profiler
             $message = 'method=' . $vars['method'] . '&time=' . $vars['time'] . '&user=' . $vars['user'];
 
             if ($vars['time'] > time() && hash_hmac('sha256', $message, md5(self::$apiKey)) === $vars['hash']) {
-                if ($vars['method'] === 'curl') {
-                    self::setBackend(new Profiler\CurlBackend());
-                }
-
                 self::$correlationId = 'dev-user-' . $vars['user'];
 
                 return true;

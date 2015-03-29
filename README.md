@@ -8,43 +8,57 @@ There are two ways to install the Profiler Client:
 
 1. Use Composer to install this library with:
 
-   ```json
-   {
-       "require": {"tideways/profiler":"@stable"}
-   }
-   ```
+        $ composer require tideways/profiler
 
-2. Download the single file from Github downloads
+2. Download the single combined file from [releases page](https://github.com/tideways/profiler/releases/latest).
 
-The profiler class is intentially monolothic and static to allow easy
-integration in your projects.
+The profiler class is monolithic intentionally to allow simple integration in all kinds of your projects.
 
 ## Requirements
 
-You need to have the `xhprof` or `tideways` PHP extensions installed to allow profiling.
+You need either the `xhprof` or `tideways` PHP extensions installed to allow
+profiling on PHP. For HHVM no additional requirements are necessary.
 
 The Tideways Daemon (`tidewaysd`) has to be running on the production/staging
-machine that you are testing.
+machine that you are profiling, otherwise the collected data will be lost.
 
 ## Integration
+
+Tideways can be integrated in your application in two ways, either by
+configuration (Environment/INI variables) or programatically in PHP code.
+
+### Environment/INI Variables
+
+The recommended method when using Tideways to monitor and profile web-requests
+is integration by configuration. It allows you to start collecting data without
+changing your application.
+
+You need to configure the following INI settings (only when using Tideways PHP extension, does not work with XHProf):
+
+    tideways.api_key=api key here
+    tideways.sample_rate=10 ; 10% of requests get profiled
+
+    ; if you use composer don't autoload the library
+    tideways.load_library=0
+
+    ; if you want to start profiling without adding composer package
+    tideways.load_library=1
+
+Or through Environment variables, for example in PHP-FPM Pool:
+
+    env[TIDEWAYS_APIKEY]=api key here
+    env[TIDEWAYS_SAMPLERATE]=10
+    env[TIDEWAYS_AUTO_START]=1
+
+### Programatical Integration
 
 ```php
 <?php
 
-\Tideways\Profiler::start("api key here", 20); // 20% Sample-Rate
+require_once 'vendor/autoload.php';
 
-// now all your application code here
-\Tideways\Profiler::setTransactionName("controller+action name");
+\Tideways\Profiler::start("api key here", 10); // 10% Sample-Rate
 ```
-Notes:
-
-- There is a method `Tideways\Profiler::stop()` but calling it is optional, a
-  shutdown handler will take care of it in a web-request.
-- Xhprof profiling is sampled at random intervals (defaults to 20% of all
-  requests) and in the other cases just a wall-time of the full request and
-  memory information is collected. You can overwrite the sampling rate by
-  passing a value between 0 (0%) and 100 (100%) as a second argument to
-  `Tideways\Profiler::start()`.
 
 ## Configuration
 
@@ -56,7 +70,7 @@ the code.
 
 - `TIDEWAYS_DISABLED` controls if the profiler should be disabled on the server.
 - `TIDEWAYS_SAMPLERATE` controls the sample rate how often the profiler should sample full XHProf traces.
-- `TIDEWAYS_DISABLE_SESSIONS` controls if explicit developer sessions are allowed.
+- `TIDEWAYS_DISABLE_SESSIONS` controls if explicit developer sessions are allowed. They are enabled by default.
 
 For example you can configure this in your PHP FPM Pool configuration:
 

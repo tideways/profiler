@@ -3,8 +3,6 @@
     <target name="generate-single-file">
         <concat destfile="Tideways.php" overwrite="true">
             <header filtering="no" trimleading="yes">&lt;?php
-namespace Tideways\Profiler;
-
             </header>
             <path>
                 <filelist dir="src">
@@ -13,13 +11,11 @@ namespace Tideways\Profiler;
                     <file name="main/Tideways/Profiler/NetworkBackend.php" />
                     <file name="main/Tideways/Profiler/SqlAnonymizer.php" />
                     <file name="main/Tideways/Profiler.php" />
+                    <file name="main/QafooLabs/Profiler.php" />
                     <file name="scripts/auto_start.php" />
                 </filelist>
             </path>
             <filterchain>
-                <linecontains negate="true">
-                    <contains value="namespace Tideways\Profiler;" />
-                </linecontains>
                 <linecontains negate="true">
                     <contains value="&lt;?php" />
                 </linecontains>
