@@ -672,7 +672,7 @@ class Profiler
     public static function guessOperationName()
     {
         if (php_sapi_name() === "cli") {
-            return basename($_SERVER["argv"][0]);
+            return "cli:" . basename($_SERVER["argv"][0]);
         }
 
         return $_SERVER["REQUEST_METHOD"] . " " . self::getRequestUri();

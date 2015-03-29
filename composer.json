@@ -6,7 +6,8 @@
         "psr-0": {
             "Tideways\\Profiler": "src/main",
             "QafooLabs\\Profiler": "src/main"
-        }
+        },
+        "files": ["src/scripts/auto_start.php"]
     },
     "conflict": {
         "qafoolabs/profiler": "*"

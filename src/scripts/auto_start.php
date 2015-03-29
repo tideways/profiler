@@ -9,14 +9,12 @@ if (ini_get("tideways.auto_start") || isset($_SERVER['TIDEWAYS_AUTO_START'])) {
          */
         if (ini_get("tideways.transaction_function")) {
             \Tideways\Profiler::detectFrameworkTransaction(ini_get("tideways.transaction_function"));
-        } else if (isset($_SERVER['TIDEWAYS_TRANSACTION_NAME'])) {
-            \Tideways\Profiler::detectFrameworkTransaction($_SERVER['TIDEWAYS_TRANSACTION_NAME']);
+        } else if (isset($_SERVER['TIDEWAYS_TRANSACTION_FUNCTION'])) {
+            \Tideways\Profiler::detectFrameworkTransaction($_SERVER['TIDEWAYS_TRANSACTION_FUNCTION']);
         }
         \Tideways\Profiler::start();
-    } else if (php_sapi_name() === "cli" && !empty($_SERVER['TIDEWAYS_START'])) {
-        \Tideways\Profiler::startDevelopment();
-
-        $transactionName = "cli:" . basename($argv[0]);
-        \Tideways\Profiler::setTransactionName($transactionName);
+    } else if (php_sapi_name() === "cli" && !empty($_SERVER['TIDEWAYS_SESSION'])) {
+        \Tideways\Profiler::start();
+        \Tideways\Profiler::setTransactionName("cli:" . basename($argv[0]));
     }
 }
