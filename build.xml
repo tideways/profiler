@@ -7,7 +7,6 @@
             <path>
                 <filelist dir="src">
                     <file name="main/Tideways/Profiler/Backend.php" />
-                    <file name="main/Tideways/Profiler/CurlBackend.php" />
                     <file name="main/Tideways/Profiler/NetworkBackend.php" />
                     <file name="main/Tideways/Profiler/SqlAnonymizer.php" />
                     <file name="main/Tideways/Profiler.php" />
