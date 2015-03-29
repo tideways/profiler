@@ -159,31 +159,7 @@ class Profiler
      */
     public static function detectFrameworkTransaction($function)
     {
-        switch ($function) {
-            case 'Zend_Controller_Action::dispatch';
-                return self::detectFramework(self::FRAMEWORK_ZEND_FRAMEWORK1);
-
-            case 'Zend\\MVC\\Controller\\ControllerManager::get';
-                return self::detectFramework(self::FRAMEWORK_ZEND_FRAMEWORK2);
-
-            case 'Symfony\Component\HttpKernel\Controller\ControllerResolver::createController';
-                return self::detectFramework(self::FRAMEWORK_SYMFONY2_COMPONENT);
-
-            case 'Symfony\Bundle\FrameworkBundle\Controller\ControllerResolver::createController';
-                return self::detectFramework(self::FRAMEWORK_SYMFONY2_FRAMEWORK);
-
-            case 'oxView::setClassName';
-                return self::detectFramework(self::FRAMEWORK_OXID);
-
-            case 'Enlight_Controller_Action::dispatch';
-                return self::detectFramework(self::FRAMEWORK_SHOPWARE);
-
-            case 'get_query_template';
-                return self::detectFramework(self::FRAMEWORK_WORDPRESS);
-
-            default:
-                return self::detectFramework($function);
-        }
+        self::detectFramework($function);
     }
 
     /**
