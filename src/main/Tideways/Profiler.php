@@ -117,36 +117,6 @@ class Profiler
     private static $extensionPrefix;
     private static $extensionFlags = 0;
 
-    private static function getDefaultLayerFunctions()
-    {
-        return array(
-            'PDO::__construct' => 'db',
-            'PDO::exec' => 'db',
-            'PDO::query' => 'db',
-            'PDO::commit' => 'db',
-            'PDOStatement::execute' => 'db',
-            'mysql_query' => 'db',
-            'mysqli_query' => 'db',
-            'mysqli::query' => 'db',
-            'curl_exec' => 'http',
-            'curl_multi_exec' => 'http',
-            'curl_multi_select' => 'http',
-            'file_get_contents' => 'io',
-            'file_put_contents' => 'io',
-            'fopen' => 'io',
-            'fsockopen' => 'io',
-            'fgets' => 'io',
-            'fputs' => 'io',
-            'fwrite' => 'io',
-            'file_exists' => 'io',
-            'MemcachePool::get' => 'cache',
-            'MemcachePool::set' => 'cache',
-            'Memcache::connect' => 'cache',
-            'apc_fetch' => 'cache',
-            'apc_store' => 'cache',
-        );
-    }
-
     public static function setBackend(Profiler\Backend $backend)
     {
         self::$backend = $backend;
