@@ -102,4 +102,16 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
 
         return $backend;
     }
+
+    public function testDetectFramework()
+    {
+        \Tideways\Profiler::detectFramework(\Tideways\Profiler::FRAMEWORK_SYMFONY2_FRAMEWORK);
+
+        $reflection = new \ReflectionClass('Tideways\Profiler');
+        $property = $reflection->getProperty('defaultOptions');
+        $property->setAccessible(true);
+        $options = $property->getValue();
+
+        $this->assertEquals('Symfony\Bundle\FrameworkBundle\Controller\ControllerResolver::createController', $options['transaction_function']);
+    }
 }

@@ -143,31 +143,31 @@ class Profiler
     public static function detectFramework($framework)
     {
         switch ($framework) {
-            case FRAMEWORK_ZEND_FRAMEWORK1:
+            case self::FRAMEWORK_ZEND_FRAMEWORK1:
                 self::$defaultOptions['transaction_function'] = 'Zend_Controller_Action::dispatch';
                 break;
 
-            case FRAMEWORK_ZEND_FRAMEWORK2:
+            case self::FRAMEWORK_ZEND_FRAMEWORK2:
                 self::$defaultOptions['transaction_function'] = 'Zend\\MVC\\Controller\\ControllerManager::get';
                 break;
 
-            case FRAMEWORK_SYMFONY2_COMPONENT:
+            case self::FRAMEWORK_SYMFONY2_COMPONENT:
                 self::$defaultOptions['transaction_function'] = 'Symfony\Component\HttpKernel\Controller\ControllerResolver::createController';
                 break;
 
-            case FRAMEWORK_SYMFONY2_FRAMEWORK:
+            case self::FRAMEWORK_SYMFONY2_FRAMEWORK:
                 self::$defaultOptions['transaction_function'] = 'Symfony\Bundle\FrameworkBundle\Controller\ControllerResolver::createController';
                 break;
 
-            case FRAMEWORK_OXID:
+            case self::FRAMEWORK_OXID:
                 self::$defaultOptions['transaction_function'] = 'oxView::setClassName';
                 break;
 
-            case FRAMEWORK_SHOPWARE:
+            case self::FRAMEWORK_SHOPWARE:
                 self::$defaultOptions['transaction_function'] = 'Enlight_Controller_Action::dispatch';
                 break;
 
-            case FRAMEWORK_WORDPRESS:
+            case self::FRAMEWORK_WORDPRESS:
                 self::$defaultOptions['transaction_function'] = 'get_query_template';
                 break;
 
