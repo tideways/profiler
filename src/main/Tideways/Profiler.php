@@ -277,7 +277,10 @@ class Profiler
             return;
         }
 
-        tideways_layers_enable(array(), self::$defaultOptions['transaction_function']);
+        tideways_enable(
+            TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS,
+            array('tranasction_function' => self::$defaultOptions['transaction_function'])
+        );
         self::$sampling = true;
     }
 
@@ -799,5 +802,45 @@ class Profiler
             '<div id="Tideways-Profiler-Profile-Id" data-trace-id="%s" style="display:none !important;" aria-hidden="true"></div>',
             self::getProfileTraceUuid()
         );
+    }
+
+    /**
+     * Check for auto starting the Profiler in Web and CLI (via Env Variable)
+     */
+    public static function autoStart()
+    {
+        if (ini_get("tideways.auto_start") || isset($_SERVER["TIDEWAYS_AUTO_START"])) {
+            if (self::isStarted() === false) {
+                if (php_sapi_name() !== "cli") {
+                    /**
+                     * In Web context we auto start with the framework transaction name
+                     * configured in INI or ENV variable.
+                     */
+                    if (ini_get("tideways.framework")) {
+                        self::detectFramework(ini_get("tideways.framework"));
+                    } else if (isset($_SERVER['TIDEWAYS_FRAMEWORK'])) {
+                        self::detectFramework($_SERVER["TIDEWAYS_FRAMEWORK"]);
+                    }
+                    self::start();
+                } else if (php_sapi_name() === "cli" && !empty($_SERVER["TIDEWAYS_SESSION"]) && isset($_SERVER['argv'])) {
+                    self::start();
+                    self::setTransactionName("cli:" . basename($_SERVER['argv'][0]));
+                }
+            }
+        }
+
+        if (self::requiresDelegateToOriginalPrependFile()) {
+            require_once ini_get("auto_prepend_file");
+        }
+    }
+
+    /**
+     * @return bool
+     */
+    private static function requiresDelegateToOriginalPrependFile()
+    {
+        return ini_get('tideways.auto_prepend_library') &&
+               tideways_prepend_overwritten() &&
+               file_exists(ini_get("auto_prepend_file"));
     }
 }
