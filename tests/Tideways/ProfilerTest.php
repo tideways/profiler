@@ -4,6 +4,13 @@ namespace Tideways;
 
 class ProfilerTest extends \PHPUnit_Framework_TestCase
 {
+    public function setUp()
+    {
+        if (function_exists('tideways_prepend_overwritten') && tideways_prepend_overwritten()) {
+            $this->markTestSkipped('Cannot run tests when tideways is installed and loaded globally. Run with -dtideways.auto_prepend_library=0');
+        }
+    }
+
     public function testStartStopProfile()
     {
         $alwaysSample = 100;
@@ -106,6 +113,7 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
     public function testDetectFramework()
     {
         \Tideways\Profiler::detectFramework(\Tideways\Profiler::FRAMEWORK_SYMFONY2_FRAMEWORK);
+        \Tideways\Profiler::start('foo');
 
         $reflection = new \ReflectionClass('Tideways\Profiler');
         $property = $reflection->getProperty('defaultOptions');

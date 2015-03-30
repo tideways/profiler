@@ -278,9 +278,10 @@ class Profiler
         }
 
         tideways_enable(
-            TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS,
+            TIDEWAYS_FLAGS_NO_COMPILE | TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS,
             array('tranasction_function' => self::$defaultOptions['transaction_function'])
         );
+
         self::$sampling = true;
     }
 
@@ -562,14 +563,7 @@ class Profiler
         if (!$sampling && $data) {
             self::storeProfile(self::$operationName, $data, self::$customTimers);
         } else {
-            $callData = $sampling ? $data : array();
-
-            self::storeMeasurement(
-                self::$operationName,
-                $duration,
-                $callData,
-                (self::$error !== false)
-            );
+            self::storeMeasurement(self::$operationName, $duration, (self::$error !== false));
         }
     }
 
@@ -621,14 +615,13 @@ class Profiler
         ));
     }
 
-    private static function storeMeasurement($operationName, $duration, array $callData, $isError)
+    private static function storeMeasurement($operationName, $duration, $isError)
     {
         self::$backend->storeMeasurement(array(
             "op" => $operationName,
             "wt" => $duration,
             "mem" => round(memory_get_peak_usage() / 1024),
             "apiKey" => self::$apiKey,
-            "c" => $callData,
             "err" => $isError,
         ));
     }
