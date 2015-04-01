@@ -556,10 +556,6 @@ class Profiler
             self::storeError(self::$operationName, self::$error, $duration);
         }
 
-        if (!self::$operationName) {
-            return;
-        }
-
         if (!$sampling && $data) {
             self::storeProfile(self::$operationName, $data, self::$customTimers);
         } else {
