@@ -106,12 +106,11 @@ class Profiler
     private static $shutdownRegistered = false;
     private static $operationName;
     private static $customVars;
-    private static $customTimerCount = 0;
     private static $error;
     private static $profiling = false;
     private static $sampling = false;
     private static $backend;
-    private static $uid;
+    private static $traceId;
     private static $extensionPrefix;
     private static $extensionFlags = 0;
 
@@ -346,11 +345,10 @@ class Profiler
         self::$sampling = false;
         self::$apiKey = $apiKey;
         self::$customVars = array();
-        self::$customTimerCount = 0;
         self::$operationName = 'default';
         self::$error = false;
         self::$started = microtime(true);
-        self::$uid = null;
+        self::$traceId = mt_rand(0, PHP_INT_MAX);
 
         if (function_exists('tideways_enable')) {
             $version = phpversion('tideways');
@@ -362,9 +360,6 @@ class Profiler
         } else if (function_exists('xhprof_enable')) {
             self::$extensionPrefix = 'xhprof';
             self::$customVars['xhpv'] = 'xhp-' . phpversion('xhprof');
-        } else if (function_exists('uprofiler_enable')) {
-            self::$extensionPrefix = 'uprofiler';
-            self::$customVars['xhpv'] = 'up-' . phpversion('uprofiler');
         }
     }
 
@@ -576,7 +571,6 @@ class Profiler
         self::setDefaultCustomVariables();
 
         self::$backend->storeProfile(array(
-            "uid" => self::getProfileTraceUuid(),
             "op" => $operationName,
             "data" => $data,
             "spans" => $spans,
@@ -712,41 +706,6 @@ class Profiler
         }
 
         self::stop();
-    }
-
-    /**
-     * Get a unique identifier for the current profile trace.
-     *
-     * Base64 encoded version of the binary representation of a UUID.
-     *
-     * @return string
-     */
-    public static function getProfileTraceUuid()
-    {
-        if (self::$uid === null) {
-            $uuid = base64_encode(
-                pack(
-                    "h*",
-                    sprintf(
-                        '%04x%04x%04x%04x%04x%04x%04x%04x',
-                        mt_rand(0, 0xffff),
-                        mt_rand(0, 0xffff),
-                        mt_rand(0, 0xffff),
-                        mt_rand(0, 0x0fff) | 0x4000,
-                        mt_rand(0, 0x3fff) | 0x8000,
-                        mt_rand(0, 0xffff),
-                        mt_rand(0, 0xffff),
-                        mt_rand(0, 0xffff)
-                    )
-                )
-            );
-            $uuid = str_replace("/", "_", $uuid);
-            $uuid = str_replace("+", "-", $uuid);
-
-            self::$uid = substr($uuid, 0, strlen($uuid) - 2);
-        }
-
-        return self::$uid;
     }
 
     /**

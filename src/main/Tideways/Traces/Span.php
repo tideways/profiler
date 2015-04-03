@@ -58,4 +58,9 @@ abstract class Span
      * @param int $stop
      */
     public abstract function record($start, $end);
+
+    /**
+     * @return array
+     */
+    public abstract function toArray();
 }

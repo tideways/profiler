@@ -15,6 +15,10 @@ namespace Tideways\Traces;
 
 use Tideways\Profiler;
 
+/**
+ * When Tideways PHP extension is not installed the span API
+ * is handled in memory.
+ */
 class PhpSpan extends Span
 {
     const TRACE_ID = 'tid';
@@ -108,5 +112,10 @@ class PhpSpan extends Span
 
         self::$spans[$this->id][self::STARTS][] = $start;
         self::$spans[$this->id][self::STOPS][] = $end;
+    }
+
+    public function toArray()
+    {
+        return self::$spans[$this->id];
     }
 }

@@ -23,7 +23,6 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
 
         $this->assertTrue(\Tideways\Profiler::isProfiling());
         $this->assertTrue(\Tideways\Profiler::isStarted());
-        $this->assertEquals(22, strlen(\Tideways\Profiler::getProfileTraceUuid()));
 
         \Tideways\Profiler::stop();
 

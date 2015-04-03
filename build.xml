@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <project name="Tideways PHP Client">
     <target name="test">
-        <exec executable="php">
+        <exec executable="php" failonerror="true">
             <arg value="-d" />
             <arg value="tideways.auto_prepend_library=0" />
             <arg value="/usr/local/bin/phpunit" />
