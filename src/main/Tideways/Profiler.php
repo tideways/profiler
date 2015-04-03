@@ -56,8 +56,11 @@ class Profiler
 {
     const VERSION = '1.5.0';
 
+    const EXTENSION_NONE = 0;
+    const EXTENSION_XHPROF = 1;
+    const EXTENSION_TIDEWAYS = 2;
+
     const EXT_FATAL            = 1;
-    const EXT_LAYERS           = 2;
     const EXT_EXCEPTION        = 4;
     const EXT_TRANSACTION_NAME = 8;
 
@@ -103,6 +106,7 @@ class Profiler
 
     private static $apiKey;
     private static $started = false;
+    private static $currentRootSpan;
     private static $shutdownRegistered = false;
     private static $operationName;
     private static $customVars;
@@ -111,8 +115,7 @@ class Profiler
     private static $sampling = false;
     private static $backend;
     private static $traceId;
-    private static $extensionPrefix;
-    private static $extensionFlags = 0;
+    private static $extension = self::EXTENSION_NONE;
 
     public static function setBackend(Profiler\Backend $backend)
     {
@@ -250,32 +253,25 @@ class Profiler
 
         self::init($apiKey);
 
-        if (!self::$extensionPrefix) {
+        if (self::$extension === self::EXTENSION_NONE) {
             return;
         }
 
         self::$profiling = self::decideProfiling($sampleRate);
 
-        if (self::$profiling == true) {
-            $enable = self::$extensionPrefix . '_enable';
-            $enable(0, self::$defaultOptions); // full profiling mode
-            return;
+        if (self::$extension === self::EXTENSION_TIDEWAYS) {
+            if (self::$profiling === true) {
+                tideways_enable(0, self::$defaultOptions);
+            } else if (self::$defaultOptions['transaction_function']) {
+                tideways_enable(
+                    TIDEWAYS_FLAGS_NO_COMPILE | TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS,
+                    array('tranasction_function' => self::$defaultOptions['transaction_function'])
+                );
+                self::$sampling = true;
+            }
+        } elseif (self::$profiling === true && self::$extension === self::EXTENSION_XHPROF) {
+            xhprof_enable(0, self::$defaultOptions);
         }
-
-        if ((self::$extensionFlags & self::EXT_LAYERS) === 0) {
-            return;
-        }
-
-        if (!self::$defaultOptions['transaction_function']) {
-            return;
-        }
-
-        tideways_enable(
-            TIDEWAYS_FLAGS_NO_COMPILE | TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS,
-            array('tranasction_function' => self::$defaultOptions['transaction_function'])
-        );
-
-        self::$sampling = true;
     }
 
     private static function decideProfiling($treshold)
@@ -320,8 +316,11 @@ class Profiler
             self::$profiling = false;
             self::$sampling = false;
 
-            $disable = self::$extensionPrefix . '_disable';
-            $disable();
+            if (self::$extension === self::EXTENSION_XHPROF) {
+                xhprof_disable();
+            } else if (self::$extension === self::EXTENSION_TIDEWAYS) {
+                tideways_disable();
+            }
         }
 
         self::$started = false;
@@ -349,16 +348,15 @@ class Profiler
         self::$error = false;
         self::$started = microtime(true);
         self::$traceId = mt_rand(0, PHP_INT_MAX);
+        self::$currentRootSpan = \Tideways\Traces\PhpSpan::createSpan(self::$traceId, 'app');
 
         if (function_exists('tideways_enable')) {
             $version = phpversion('tideways');
 
-            self::$extensionPrefix = 'tideways';
-            self::$extensionFlags = (self::EXT_EXCEPTION | self::EXT_FATAL | self::EXT_TRANSACTION_NAME);
-            self::$extensionFlags |= (version_compare($version, "1.2.2") >= 0) ? self::EXT_LAYERS : 0;
+            self::$extension = self::EXTENSION_TIDEWAYS;
             self::$customVars['xhpv'] = 'tw-' . $version;
         } else if (function_exists('xhprof_enable')) {
-            self::$extensionPrefix = 'xhprof';
+            self::$extension = self::EXTENSION_XHPROF;
             self::$customVars['xhpv'] = 'xhp-' . phpversion('xhprof');
         }
     }
@@ -508,13 +506,14 @@ class Profiler
         $data = null;
         $sampling = self::$sampling;
 
-        if (self::$operationName === 'default' && (self::$extensionFlags & self::EXT_TRANSACTION_NAME) > 0) {
+        if (self::$operationName === 'default' && self::$extension === self::EXTENSION_TIDEWAYS) {
             self::$operationName = tideways_transaction_name() ?: 'default';
         }
 
         if (self::$sampling || self::$profiling) {
-            $disable = self::$extensionPrefix . '_disable';
-            $data = $disable();
+            $data = (self::$extension === self::EXTENSION_TIDEWAYS)
+                ? tideways_disable()
+                : xhprof_disable();
         }
 
         $duration = self::currentDuration();
@@ -684,12 +683,7 @@ class Profiler
 
     public static function shutdown()
     {
-        if ((self::$extensionFlags & self::EXT_FATAL) > 0) {
-            $callback = self::$extensionPrefix . '_last_fatal_error';
-            $lastError = $callback();
-        } else {
-            $lastError = error_get_last();
-        }
+        $lastError = error_get_last();
 
         if ($lastError && ($lastError["type"] === E_ERROR || $lastError["type"] === E_PARSE || $lastError["type"] === E_COMPILE_ERROR)) {
             self::logFatal(
