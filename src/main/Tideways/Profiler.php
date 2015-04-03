@@ -106,12 +106,10 @@ class Profiler
     private static $shutdownRegistered = false;
     private static $operationName;
     private static $customVars;
-    private static $customTimers;
     private static $customTimerCount = 0;
     private static $error;
     private static $profiling = false;
     private static $sampling = false;
-    private static $correlationId;
     private static $backend;
     private static $uid;
     private static $extensionPrefix;
@@ -202,10 +200,6 @@ class Profiler
     public static function startDevelopment($apiKey = null, array $options = array())
     {
         self::start($apiKey, 100, $options, 4);
-
-        if (!self::$correlationId) {
-            self::$correlationId = "dev-trace";
-        }
     }
 
     /**
@@ -307,8 +301,6 @@ class Profiler
             $message = 'method=' . $vars['method'] . '&time=' . $vars['time'] . '&user=' . $vars['user'];
 
             if ($vars['time'] > time() && hash_hmac('sha256', $message, md5(self::$apiKey)) === $vars['hash']) {
-                self::$correlationId = 'dev-user-' . $vars['user'];
-
                 return true;
             }
         }
@@ -354,7 +346,6 @@ class Profiler
         self::$sampling = false;
         self::$apiKey = $apiKey;
         self::$customVars = array();
-        self::$customTimers = array();
         self::$customTimerCount = 0;
         self::$operationName = 'default';
         self::$error = false;
@@ -397,9 +388,11 @@ class Profiler
         return sha1(self::$apiKey);
     }
 
+    /**
+     * @deprecated
+     */
     public static function setCorrelationId($id)
     {
-        self::$correlationId = $id;
     }
 
     public static function setTransactionName($name)
@@ -418,56 +411,33 @@ class Profiler
     }
 
     /**
-     * Start a custom timer for SQL execution with the give SQL query.
+     * No-op, this function does nothing anymore.
      *
-     * Returns the timer id to be passed to {@link stopCustomTimer()}
-     * for completing the timing process. Queries passed to this
-     * method are anonymized using {@link SqlAnonymizer::anonymize()}.
-     *
-     * @param string $query
-     * @return integer|bool
+     * @see Profiler::createSpan()
+     * @deprecated
      */
-    public static function startSqlCustomTimer($query)
+    public static function startSqlCustomTimer()
     {
-        return self::startCustomTimer('sql', Profiler\SqlAnonymizer::anonymize($query));
     }
 
     /**
-     * Start a custom timer for the given group and using the given description.
+     * No-op, this function does nothing anymore.
      *
-     * Data passed as description it not anonymized. It is your responsibility to
-     * strip the data of any input that might cause private data to be sent to
-     * Tideways service.
-     *
-     * @param string $group
-     * @param string $description
-     * @return integer|bool
+     * @see Profiler::createSpan()
+     * @deprecated
      */
-    public static function startCustomTimer($group, $description)
+    public static function startCustomTimer()
     {
-        if (self::$started == false || self::$profiling == false) {
-            return false;
-        }
-
-        self::$customTimers[self::$customTimerCount] = array("s" => microtime(true), "id" => $description, "group" => $group);
-        self::$customTimerCount++;
-
-        return self::$customTimerCount - 1;
     }
 
     /**
      * Stop the custom timer with given id.
      *
+     * @deprecated
      * @return bool
      */
-    public static function stopCustomTimer($id)
+    public static function stopCustomTimer()
     {
-        if ($id === false || !isset(self::$customTimers[$id]) || isset(self::$customTimers[$id]["wt"])) {
-            return false;
-        }
-
-        self::$customTimers[$id]["wt"] = intval(round((microtime(true) - self::$customTimers[$id]["s"]) * 1000000));
-        unset(self::$customTimers[$id]["s"]);
         return true;
     }
 
@@ -475,10 +445,11 @@ class Profiler
      * Return all current custom timers.
      *
      * @return array
+     * @deprecated
      */
     public static function getCustomTimers()
     {
-        return self::$customTimers;
+        return array();
     }
 
     public static function isStarted()
@@ -525,6 +496,11 @@ class Profiler
             : null;
     }
 
+    public static function currentDuration()
+    {
+        return intval(round((microtime(true) - self::$started) * 1000));
+    }
+
     /**
      * Stop all profiling actions and submit collected data.
      */
@@ -546,7 +522,7 @@ class Profiler
             $data = $disable();
         }
 
-        $duration = intval(round((microtime(true) - self::$started) * 1000));
+        $duration = self::currentDuration();
 
         self::$started = false;
         self::$profiling = false;
@@ -557,7 +533,8 @@ class Profiler
         }
 
         if (!$sampling && $data) {
-            self::storeProfile(self::$operationName, $data, self::$customTimers);
+            $spans = \Tideways\Traces\PhpSpan::getSpans(); // hardoded as long only 1 impl exists.
+            self::storeProfile(self::$operationName, $data, $spans);
         } else {
             self::storeMeasurement(self::$operationName, $duration, (self::$error !== false));
         }
@@ -571,7 +548,6 @@ class Profiler
                 "error" => $errorData,
                 "apiKey" => self::$apiKey,
                 "wt" => $duration,
-                "cid" => (string)self::$correlationId
             )
         );
     }
@@ -591,7 +567,7 @@ class Profiler
         }
     }
 
-    private static function storeProfile($operationName, $data, $customTimers)
+    private static function storeProfile($operationName, $data, $spans)
     {
         if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
             return;
@@ -603,11 +579,10 @@ class Profiler
             "uid" => self::getProfileTraceUuid(),
             "op" => $operationName,
             "data" => $data,
-            "custom" => $customTimers,
+            "spans" => $spans,
             "vars" => self::$customVars ?: null,
             "apiKey" => self::$apiKey,
             "mem" => round(memory_get_peak_usage() / 1024),
-            "cid" => (string)self::$correlationId,
         ));
     }
 

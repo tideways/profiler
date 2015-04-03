@@ -4,7 +4,7 @@
     "license": "MIT",
     "autoload": {
         "psr-0": {
-            "Tideways\\Profiler": "src/main",
+            "Tideways\\": "src/main",
             "QafooLabs\\Profiler": "src/main"
         },
         "files": ["src/scripts/auto_start.php"]

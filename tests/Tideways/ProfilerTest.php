@@ -50,31 +50,6 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse(\Tideways\Profiler::isStarted());
     }
 
-    public function testCustomTimers()
-    {
-        $alwaysSample = 100;
-
-        $backend = self::createBackend();
-
-        \Tideways\Profiler::start('foo', $alwaysSample);
-        \Tideways\Profiler::setTransactionName(__CLASS__ . '::' . __METHOD__);
-
-        $sqlId = \Tideways\Profiler::startSqlCustomTimer('SELECT 1 FROM "bar"');
-        $oId = \Tideways\Profiler::startCustomTimer('solr', 'foo=bar');
-        \Tideways\Profiler::stopCustomTimer($oId);
-        \Tideways\Profiler::stopCustomTimer($sqlId);
-
-        \Tideways\Profiler::stop();
-
-        $timers = \Tideways\Profiler::getCustomTimers();
-
-        $this->assertCount(2, $timers);
-        $this->assertEquals('sql', $timers[0]['group']);
-        $this->assertEquals('solr', $timers[1]['group']);
-        $this->assertEquals('SELECT ? FROM ?', $timers[0]['id']);
-        $this->assertEquals('foo=bar', $timers[1]['id']);
-    }
-
     public function testCustomVariables()
     {
         $alwaysSample = 100;

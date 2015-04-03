@@ -1,5 +1,13 @@
 <?xml version="1.0" ?>
 <project name="Tideways PHP Client">
+    <target name="test">
+        <exec executable="php">
+            <arg value="-d" />
+            <arg value="tideways.auto_prepend_library=0" />
+            <arg value="/usr/local/bin/phpunit" />
+        </exec>
+    </target>
+
     <target name="generate-single-file">
         <concat destfile="Tideways.php" overwrite="true">
             <header filtering="no" trimleading="yes">&lt;?php
