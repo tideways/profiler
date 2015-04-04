@@ -49,33 +49,6 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse(\Tideways\Profiler::isStarted());
     }
 
-    public function testCustomVariables()
-    {
-        $alwaysSample = 100;
-
-        $backend = self::createBackend();
-
-        \Tideways\Profiler::start('foo', $alwaysSample);
-        \Tideways\Profiler::setTransactionName(__CLASS__ . '::' . __METHOD__);
-
-        \Tideways\Profiler::setCustomVariable("foo", "bar");
-
-        $this->assertEquals('bar', \Tideways\Profiler::getCustomVariable("foo"));
-    }
-
-    public function testDefaultCustomVariables()
-    {
-        $_SERVER['SERVER_ADDR'] = '127.0.0.1';
-        $_SERVER['REQUEST_URI'] = '/foo/bar?baz';
-        $_SERVER['HTTPS'] = 'on';
-        $_SERVER['REQUEST_METHOD'] = 'PUT';
-
-        \Tideways\Profiler::setDefaultCustomVariables();
-
-        $this->assertEquals('PUT', \Tideways\Profiler::getCustomVariable("method"));
-        $this->assertEquals('https://127.0.0.1/foo/bar', \Tideways\Profiler::getCustomVariable("url"));
-    }
-
     private function createBackend()
     {
         $backend = $this->getMock('Tideways\Profiler\Backend');
@@ -95,5 +68,14 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         $options = $property->getValue();
 
         $this->assertEquals('Symfony\Bundle\FrameworkBundle\Controller\ControllerResolver::createController', $options['transaction_function']);
+    }
+
+    public function testCreateSpan()
+    {
+        \Tideways\Profiler::start('foo', 100);
+
+        $span = \Tideways\Profiler::createSpan('sql');
+
+        $this->assertInstanceOf('Tideways\Traces\Span', $span);
     }
 }

@@ -351,98 +351,15 @@ class Profiler
         self::$currentRootSpan = \Tideways\Traces\PhpSpan::createSpan(self::$traceId, 'app');
 
         if (function_exists('tideways_enable')) {
-            $version = phpversion('tideways');
-
             self::$extension = self::EXTENSION_TIDEWAYS;
-            self::$customVars['xhpv'] = 'tw-' . $version;
         } else if (function_exists('xhprof_enable')) {
             self::$extension = self::EXTENSION_XHPROF;
-            self::$customVars['xhpv'] = 'xhp-' . phpversion('xhprof');
         }
-    }
-
-    /**
-     * Return transaction hash for real user monitoring.
-     *
-     * @return string
-     */
-    public static function getTransactionHash()
-    {
-        return substr(sha1(self::$operationName), 0, 12);
-    }
-
-    /**
-     * Return api hash used for real user monitoring.
-     *
-     * @return string
-     */
-    public static function getApiHash()
-    {
-        return sha1(self::$apiKey);
-    }
-
-    /**
-     * @deprecated
-     */
-    public static function setCorrelationId($id)
-    {
     }
 
     public static function setTransactionName($name)
     {
         self::$operationName = !empty($name) ? $name : 'empty';
-    }
-
-    /**
-     * Use {@link setTransactionName} instead.
-     *
-     * @deprecated
-     */
-    public static function setOperationName($name)
-    {
-        self::$operationName = $name;
-    }
-
-    /**
-     * No-op, this function does nothing anymore.
-     *
-     * @see Profiler::createSpan()
-     * @deprecated
-     */
-    public static function startSqlCustomTimer()
-    {
-    }
-
-    /**
-     * No-op, this function does nothing anymore.
-     *
-     * @see Profiler::createSpan()
-     * @deprecated
-     */
-    public static function startCustomTimer()
-    {
-    }
-
-    /**
-     * Stop the custom timer with given id.
-     *
-     * @deprecated
-     * @return bool
-     */
-    public static function stopCustomTimer()
-    {
-        return true;
-    }
-
-    /**
-     * Return all current custom timers.
-     *
-     * @return array
-     * @deprecated
-     */
-    public static function getCustomTimers()
-    {
-        return array();
     }
 
     public static function isStarted()
@@ -479,16 +396,28 @@ class Profiler
             return;
         }
 
-        self::$customVars[$name] = $value;
+        self::$currentRootSpan->annotate(array($name => $value));
     }
 
-    public static function getCustomVariable($name)
+    /**
+     * Create a new trace span with the given category name.
+     *
+     * @example
+     *
+     *  $span = \Tideways\Profiler::createSpan('sql');
+     *
+     * @return \Tideways\Traces\Span
+     */
+    public static function createSpan($name)
     {
-        return isset(self::$customVars[$name])
-            ? self::$customVars[$name]
-            : null;
+        return self::$profiling
+            ? \Tideways\Traces\PhpSpan::createSpan($name)
+            : new \Tideways\Traces\NullSpan();
     }
 
+    /**
+     * @return int
+     */
     public static function currentDuration()
     {
         return intval(round((microtime(true) - self::$started) * 1000));
@@ -566,8 +495,6 @@ class Profiler
         if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
             return;
         }
-
-        self::setDefaultCustomVariables();
 
         self::$backend->storeProfile(array(
             "op" => $operationName,
@@ -693,9 +620,7 @@ class Profiler
                 $lastError["type"],
                 isset($lastError["trace"]) ? $lastError["trace"] : null
             );
-        }
-
-        if (function_exists("http_response_code") && http_response_code() >= 500) {
+        } elseif (function_exists("http_response_code") && http_response_code() >= 500) {
             self::logFatal("PHP request set error HTTP response code to '" . http_response_code() . "'.", "", 0, E_USER_ERROR);
         }
 
