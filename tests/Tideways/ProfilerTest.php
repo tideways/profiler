@@ -10,6 +10,10 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
             $this->markTestSkipped('Cannot run tests when tideways is installed and loaded globally. Run with -dtideways.auto_prepend_library=0');
         }
         \Tideways\Profiler::stop();
+
+        if (\Tideways\Profiler::isStarted()) {
+            $this->fail('Profiler is already running');
+        }
     }
 
     public function testStartStopProfile()
@@ -33,6 +37,7 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
 
     public function testStartStopMeasurement()
     {
+
         $neverProfile = 0;
 
         $backend = self::createBackend();
@@ -174,5 +179,46 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         $span = \Tideways\Profiler::createSpan('sql');
 
         $this->assertInstanceOf('Tideways\Traces\Span', $span);
+    }
+
+    public function testForceProfilingHash()
+    {
+        $time = time() + 100;
+        $message = 'method=&time='.$time.'&user=usr';
+        $hash = hash_hmac('sha256', $message, md5('foo'));
+        $_SERVER['HTTP_X_TIDEWAYS_PROFILER'] = $message . '&hash=' . $hash;
+
+        \Tideways\Profiler::start('foo', 0);
+
+        $this->assertTrue(\Tideways\Profiler::isProfiling());
+
+        \Tideways\Profiler::stop();
+    }
+
+    public function testExpiredProfilingHash()
+    {
+        $time = time() - 100;
+        $message = 'method=&time='.$time.'&user=usr';
+        $hash = hash_hmac('sha256', $message, md5('foo'));
+        $_SERVER['HTTP_X_TIDEWAYS_PROFILER'] = $message . '&hash=' . $hash;
+
+        \Tideways\Profiler::start('foo', 0);
+
+        $this->assertFalse(\Tideways\Profiler::isProfiling());
+
+        \Tideways\Profiler::stop();
+    }
+
+    public function testWrongProfilingHash()
+    {
+        $time = time() - 100;
+        $message = 'method=&time='.$time.'&user=usr';
+        $_SERVER['HTTP_X_TIDEWAYS_PROFILER'] = $message . '&hash=wrong';
+
+        \Tideways\Profiler::start('foo', 0);
+
+        $this->assertFalse(\Tideways\Profiler::isProfiling());
+
+        \Tideways\Profiler::stop();
     }
 }

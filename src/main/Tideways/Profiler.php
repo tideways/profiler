@@ -110,7 +110,6 @@ class Profiler
     );
 
     private static $trace;
-    private static $apiKey;
     private static $startTime = false;
     private static $currentRootSpan;
     private static $shutdownRegistered = false;
@@ -294,7 +293,7 @@ class Profiler
         if (isset($vars['hash'], $vars['time'], $vars['user'], $vars['method'])) {
             $message = 'method=' . $vars['method'] . '&time=' . $vars['time'] . '&user=' . $vars['user'];
 
-            if ($vars['time'] > time() && hash_hmac('sha256', $message, md5(self::$apiKey)) === $vars['hash']) {
+            if ($vars['time'] > time() && hash_hmac('sha256', $message, md5(self::$trace['apiKey'])) === $vars['hash']) {
                 return true;
             }
         }
