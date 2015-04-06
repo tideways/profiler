@@ -100,14 +100,14 @@ class PhpSpan extends Span
         }
     }
 
-    public function record($start, $end)
+    public function recordDuration($duration, $start = 0)
     {
         if ($this->timerRunning) {
             return;
         }
 
         self::$spans[$this->id][self::STARTS][] = $start;
-        self::$spans[$this->id][self::STOPS][] = $end;
+        self::$spans[$this->id][self::STOPS][] = $start + $duration;
     }
 
     public function toArray()

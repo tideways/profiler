@@ -31,13 +31,7 @@ class NullSpan extends Span
     {
     }
 
-    /**
-     * If no timer is started, record a single start/stop timer event.
-     *
-     * @param int $start
-     * @param int $stop
-     */
-    public function record($start, $end)
+    public function recordDuration($duration, $start = 0)
     {
     }
 

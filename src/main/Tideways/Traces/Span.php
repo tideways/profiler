@@ -45,19 +45,17 @@ abstract class Span
     public abstract function stopTimer();
 
     /**
+     * @param int $duration
+     * @param int $start
+     */
+    public abstract function recordDuration($duration, $start = null);
+
+    /**
      * Annotate span with metadata.
      *
      * @param array<string,scalar>
      */
     public abstract function annotate(array $annotations);
-
-    /**
-     * If no timer is started, record a single start/stop timer event.
-     *
-     * @param int $start
-     * @param int $stop
-     */
-    public abstract function record($start, $end);
 
     /**
      * @return array
