@@ -26,8 +26,6 @@ class PhpSpan extends Span
     const STARTS = 'b';
     const STOPS = 'e';
     const ANNOTATIONS = 'a';
-    const ANNOTATION_NAME = 'k';
-    const ANNOTATION_VALUE = 'v';
 
     /**
      * @var array
@@ -98,9 +96,7 @@ class PhpSpan extends Span
                 continue;
             }
 
-            self::$spans[$this->id][self::ANNOTATIONS][] = array(
-                self::ANNOTATION_NAME => $name, self::ANNOTATION_VALUE => $value
-            );
+            self::$spans[$this->id][self::ANNOTATIONS][$name] = $value;
         }
     }
 

@@ -109,7 +109,6 @@ class Profiler
     private static $currentRootSpan;
     private static $shutdownRegistered = false;
     private static $operationName;
-    private static $customVars;
     private static $error;
     private static $profiling = false;
     private static $sampling = false;
@@ -340,21 +339,19 @@ class Profiler
             );
         }
 
-        self::$profiling = false;
-        self::$sampling = false;
-        self::$apiKey = $apiKey;
-        self::$customVars = array();
-        self::$operationName = 'default';
-        self::$error = false;
-        self::$started = microtime(true);
-        self::$traceId = mt_rand(0, PHP_INT_MAX);
-        self::$currentRootSpan = \Tideways\Traces\PhpSpan::createSpan(self::$traceId, 'app');
-
         if (function_exists('tideways_enable')) {
             self::$extension = self::EXTENSION_TIDEWAYS;
         } else if (function_exists('xhprof_enable')) {
             self::$extension = self::EXTENSION_XHPROF;
         }
+
+        self::$profiling = false;
+        self::$sampling = false;
+        self::$apiKey = $apiKey;
+        self::$operationName = 'default';
+        self::$error = false;
+        self::$started = microtime(true);
+        self::$currentRootSpan = self::createRootSpan();
     }
 
     public static function setTransactionName($name)
@@ -475,19 +472,37 @@ class Profiler
         );
     }
 
-    public static function setDefaultCustomVariables()
+    private static function createRootSpan()
     {
-        if (isset($_SERVER['REQUEST_METHOD']) && !isset(self::$customVars['method'])) {
-            self::$customVars['method'] = $_SERVER["REQUEST_METHOD"];
+        $annotations = array();
+
+        if (self::$extension === self::EXTENSION_TIDEWAYS) {
+            $annotations['xhpv'] = phpversion('tideways');
+        } elseif (self::$extension === self::EXTENSION_XHPROF) {
+            $annotations['xhpv'] = phpversion('xhprof');
         }
 
-        if (isset($_SERVER['REQUEST_URI']) && !isset(self::$customVars['url'])) {
-            if (isset($_SERVER['HTTP_HOST'])) {
-                self::$customVars['url'] = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . self::getRequestUri();
-            } elseif(isset($_SERVER['SERVER_ADDR'])) {
-                self::$customVars['url'] = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['SERVER_ADDR'] . self::getRequestUri();
+        if (isset($_SERVER['REQUEST_URI'])) {
+            $annotations['title'] = '';
+            if (isset($_SERVER['REQUEST_METHOD'])) {
+                $annotations['title'] = $_SERVER["REQUEST_METHOD"] . ' ';
             }
+
+            if (isset($_SERVER['HTTP_HOST'])) {
+                $annotations['title'] .= (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . self::getRequestUri();
+            } elseif(isset($_SERVER['SERVER_ADDR'])) {
+                $annotations['title'] .= (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['SERVER_ADDR'] . self::getRequestUri();
+            }
+
+        } elseif (php_sapi_name() === "cli") {
+            $annotations['title'] = basename($_SERVER['argv'][0]);
         }
+
+        self::$traceId = mt_rand(0, PHP_INT_MAX);
+        $span = \Tideways\Traces\PhpSpan::createSpan(self::$traceId, 'app');
+        $span->annotate($annotations);
+
+        return $span;
     }
 
     private static function storeProfile($operationName, $data, $spans)
@@ -500,7 +515,6 @@ class Profiler
             "op" => $operationName,
             "data" => $data,
             "spans" => $spans,
-            "vars" => self::$customVars ?: null,
             "apiKey" => self::$apiKey,
             "mem" => round(memory_get_peak_usage() / 1024),
         ));
@@ -625,25 +639,6 @@ class Profiler
         }
 
         self::stop();
-    }
-
-    /**
-     * Render HTML that the profiling toolbar picks up to display inline development information.
-     *
-     * This method does not display the html, it just returns it.
-     *
-     * @return string
-     */
-    public static function renderToolbarBootstrapHtml()
-    {
-        if (self::$started == false || self::$sampling === true) {
-            return;
-        }
-
-        return sprintf(
-            '<div id="Tideways-Profiler-Profile-Id" data-trace-id="%s" style="display:none !important;" aria-hidden="true"></div>',
-            self::getProfileTraceUuid()
-        );
     }
 
     /**

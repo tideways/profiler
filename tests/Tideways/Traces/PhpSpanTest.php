@@ -62,9 +62,6 @@ class PhpSpanTest extends \PHPUnit_Framework_TestCase
         $data = PhpSpan::getSpans();
 
         $this->assertCount(1, $data);
-        $this->assertEquals(array(
-            array(PhpSpan::ANNOTATION_NAME => 'foo', PhpSpan::ANNOTATION_VALUE => 'bar'),
-            array(PhpSpan::ANNOTATION_NAME => 'bar', PhpSpan::ANNOTATION_VALUE => 'baz'),
-        ), $data[0][PhpSpan::ANNOTATIONS]);
+        $this->assertEquals($annotations, $data[0][PhpSpan::ANNOTATIONS]);
     }
 }
