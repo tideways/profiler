@@ -9,6 +9,7 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         if (function_exists('tideways_prepend_overwritten') && tideways_prepend_overwritten()) {
             $this->markTestSkipped('Cannot run tests when tideways is installed and loaded globally. Run with -dtideways.auto_prepend_library=0');
         }
+        \Tideways\Profiler::stop();
     }
 
     public function testStartStopProfile()
@@ -32,13 +33,12 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
 
     public function testStartStopMeasurement()
     {
-        $neverSample = 0;
+        $neverProfile = 0;
 
         $backend = self::createBackend();
         $backend->expects($this->once())->method('udpStore');
 
-        \Tideways\Profiler::start('foo', $neverSample);
-        \Tideways\Profiler::setTransactionName(__CLASS__ . '::' . __METHOD__);
+        \Tideways\Profiler::start('foo', $neverProfile);
 
         $this->assertFalse(\Tideways\Profiler::isProfiling());
         $this->assertTrue(\Tideways\Profiler::isStarted());
@@ -47,6 +47,103 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
 
         $this->assertFalse(\Tideways\Profiler::isProfiling());
         $this->assertFalse(\Tideways\Profiler::isStarted());
+    }
+
+    public function testSamplingIgnoresUserlandSpans()
+    {
+        $neverProfile = 0;
+
+        $backend = self::createBackend();
+        $backend->expects($this->once())->method('udpStore')->will($this->returnCallback(function($trace) {
+            $this->assertCount(1, $trace['spans']);
+        }));
+
+        \Tideways\Profiler::start('foo', $neverProfile);
+
+        $span = \Tideways\Profiler::createSpan('sql');
+        $span->startTimer();
+        $span->annotate(array('foo' => 'bar'));
+        $span->stopTimer();
+
+        $span = \Tideways\Profiler::createSpan('redis');
+        $span->startTimer();
+        $span->annotate(array('foo' => 'bar'));
+        $span->stopTimer();
+
+        \Tideways\Profiler::stop();
+    }
+
+    public function testProfilingKeepsUserlandSpans()
+    {
+        $alwaysProfile = 100;
+
+        $backend = self::createBackend();
+        $backend->expects($this->once())->method('socketStore')->will($this->returnCallback(function($trace) {
+            $this->assertCount(3, $trace['spans']);
+        }));
+
+        \Tideways\Profiler::start('foo', $alwaysProfile);
+
+        $span = \Tideways\Profiler::createSpan('sql');
+        $span->startTimer();
+        $span->annotate(array('foo' => 'bar'));
+        $span->stopTimer();
+
+        $span = \Tideways\Profiler::createSpan('redis');
+        $span->startTimer();
+        $span->annotate(array('foo' => 'bar'));
+        $span->stopTimer();
+
+        \Tideways\Profiler::stop();
+    }
+
+    public function testTransactionNamePassedToTrace()
+    {
+        $neverProfile = 0;
+
+        $backend = self::createBackend();
+        $backend->expects($this->once())->method('udpStore')->will($this->returnCallback(function($trace) {
+            $this->assertEquals('foobar', $trace['tx']);
+        }));
+
+        \Tideways\Profiler::start('foo', $neverProfile);
+        \Tideways\Profiler::setTransactionName('foobar');
+        \Tideways\Profiler::stop();
+    }
+
+    public function testLogFatalPassedToTrace()
+    {
+        $neverProfile = 0;
+
+        $backend = self::createBackend();
+        $backend->expects($this->once())->method('udpStore')->will($this->returnCallback(function($trace) {
+            $annotations = $trace['spans'][0]['a'];
+            $this->assertEquals('errmsg', $annotations['err']);
+            $this->assertEquals('foo.php:11', $annotations['err_source']);
+        }));
+
+        \Tideways\Profiler::start('foo', $neverProfile);
+        \Tideways\Profiler::logFatal('errmsg', 'foo.php', 11);
+        \Tideways\Profiler::stop();
+    }
+
+    public function testLogExceptionPassedToTrace()
+    {
+        $neverProfile = 0;
+
+        $backend = self::createBackend();
+        $backend->expects($this->once())->method('udpStore')->will($this->returnCallback(function($trace) {
+            $annotations = $trace['spans'][0]['a'];
+            $this->assertEquals('Testing exceptions', $annotations['err']);
+            $this->assertContains('ProfilerTest.php:', $annotations['err_source']);
+            $this->assertEquals('RuntimeException', $annotations['exception']);
+        }));
+
+        $exception = new \RuntimeException('Testing exceptions');
+
+        \Tideways\Profiler::start('foo', $neverProfile);
+        \Tideways\Profiler::logException($exception);
+        \Tideways\Profiler::stop();
     }
 
     private function createBackend()

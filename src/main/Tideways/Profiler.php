@@ -114,11 +114,9 @@ class Profiler
     private static $startTime = false;
     private static $currentRootSpan;
     private static $shutdownRegistered = false;
-    private static $operationName;
     private static $error = false;
     private static $mode = self::MODE_NONE;
     private static $backend;
-    private static $traceId;
     private static $extension = self::EXTENSION_NONE;
 
     public static function setBackend(Profiler\Backend $backend)
@@ -359,7 +357,7 @@ class Profiler
 
     public static function setTransactionName($name)
     {
-        self::$operationName = !empty($name) ? $name : 'empty';
+        self::$trace['tx'] = !empty($name) ? $name : 'empty';
     }
 
     public static function isStarted()
@@ -410,7 +408,7 @@ class Profiler
      */
     public static function createSpan($name)
     {
-        return (self::$mode !== self::MODE_PROFILING)
+        return (self::$mode === self::MODE_PROFILING)
             ? \Tideways\Traces\PhpSpan::createSpan($name)
             : new \Tideways\Traces\NullSpan();
     }
@@ -462,6 +460,8 @@ class Profiler
 
     private static function createRootSpan()
     {
+        \Tideways\Traces\PhpSpan::clear();
+
         $annotations = array();
 
         if (self::$extension === self::EXTENSION_TIDEWAYS) {
@@ -492,31 +492,6 @@ class Profiler
         return $span;
     }
 
-    private static function storeProfile($operationName, $data, $spans)
-    {
-        if (!isset($data["main()"]["wt"]) || !$data["main()"]["wt"]) {
-            return;
-        }
-
-        self::$backend->storeProfile(array(
-            "op" => $operationName,
-            "data" => $data,
-            "spans" => $spans,
-            "apiKey" => self::$apiKey,
-            "mem" => round(memory_get_peak_usage() / 1024),
-        ));
-    }
-
-    private static function storeMeasurement($operationName, $duration, $isError)
-    {
-        self::$backend->storeMeasurement(array(
-            "op" => $operationName,
-            "wt" => $duration,
-            "mem" => round(memory_get_peak_usage() / 1024),
-            "apiKey" => self::$apiKey,
-            "err" => $isError,
-        ));
-    }
 
     /**
      * Use Request or Script information for the transaction name.
@@ -563,7 +538,7 @@ class Profiler
         self::$currentRootSpan->annotate(array(
             "err" => $message,
             "err_source" => $file . ':' . $line,
-            "type" => $type,
+            "exception" => 'EngineException', // Forward compatibility with PHP7
             "trace" => is_string($trace) ? $trace : null,
         ));
     }
@@ -585,6 +560,10 @@ class Profiler
 
     public static function shutdown()
     {
+        if (self::$mode === self::MODE_NONE) {
+            return;
+        }
+
         $lastError = error_get_last();
 
         if ($lastError && ($lastError["type"] === E_ERROR || $lastError["type"] === E_PARSE || $lastError["type"] === E_COMPILE_ERROR)) {
