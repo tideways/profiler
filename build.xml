@@ -25,6 +25,27 @@
                 <linecontains negate="true">
                     <contains value="&lt;?php" />
                 </linecontains>
+                <!-- Strip comments during concat if desired -->
+                <!--
+                <linecontainsregexp negate="true">
+                    <regexp pattern="^\/\*\*" />
+                </linecontainsregexp>
+                <linecontainsregexp negate="true">
+                    <regexp pattern="^ \*\/$" />
+                </linecontainsregexp>
+                <linecontainsregexp negate="true">
+                    <regexp pattern="^ \*" />
+                </linecontainsregexp>
+                <linecontainsregexp negate="true">
+                    <regexp pattern="^    \/\*\*" />
+                </linecontainsregexp>
+                <linecontainsregexp negate="true">
+                    <regexp pattern="^     \*\/$" />
+                </linecontainsregexp>
+                <linecontainsregexp negate="true">
+                    <regexp pattern="^     \*" />
+                </linecontainsregexp>
+                -->
             </filterchain>
         </concat>
     </target>
