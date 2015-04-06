@@ -14,7 +14,7 @@ class PhpSpanTest extends \PHPUnit_Framework_TestCase
      */
     public function it_has_id()
     {
-        $span = PhpSpan::createSpan(1, 'app');
+        $span = PhpSpan::createSpan('app');
 
         $this->assertEquals(0, $span->getId());
     }
@@ -22,14 +22,13 @@ class PhpSpanTest extends \PHPUnit_Framework_TestCase
     /**
      * @test
      */
-    public function it_records_name_and_traceid()
+    public function it_records_name()
     {
-        PhpSpan::createSpan(1, 'app');
+        PhpSpan::createSpan('app');
 
         $data = PhpSpan::getSpans();
 
         $this->assertCount(1, $data);
-        $this->assertEquals(1, $data[0][PhpSpan::TRACE_ID]);
         $this->assertEquals('app', $data[0][PhpSpan::NAME]);
     }
 

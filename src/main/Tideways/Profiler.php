@@ -56,6 +56,11 @@ class Profiler
 {
     const VERSION = '1.5.0';
 
+    const MODE_NONE = 0;
+    const MODE_BASIC = 1;
+    const MODE_SAMPLING = 2;
+    const MODE_PROFILING = 3;
+
     const EXTENSION_NONE = 0;
     const EXTENSION_XHPROF = 1;
     const EXTENSION_TIDEWAYS = 2;
@@ -104,14 +109,14 @@ class Profiler
         ),
     );
 
+    private static $trace;
     private static $apiKey;
-    private static $started = false;
+    private static $startTime = false;
     private static $currentRootSpan;
     private static $shutdownRegistered = false;
     private static $operationName;
-    private static $error;
-    private static $profiling = false;
-    private static $sampling = false;
+    private static $error = false;
+    private static $mode = self::MODE_NONE;
     private static $backend;
     private static $traceId;
     private static $extension = self::EXTENSION_NONE;
@@ -236,15 +241,12 @@ class Profiler
      */
     public static function start($apiKey = null, $sampleRate = null)
     {
-        if (self::$started) {
+        if (self::$mode !== self::MODE_NONE) {
             return;
         }
 
-        $configApiKey = isset($_SERVER['TIDEWAYS_APIKEY']) ? $_SERVER['TIDEWAYS_APIKEY'] : ini_get("tideways.api_key");
-        $apiKey = $apiKey ?: $configApiKey;
-
-        $configSampleRate = isset($_SERVER['TIDEWAYS_SAMPLERATE']) ? intval($_SERVER['TIDEWAYS_SAMPLERATE']) : ini_get("tideways.sample_rate");
-        $sampleRate = $sampleRate ?: $configSampleRate;
+        $apiKey = $apiKey ?: (isset($_SERVER['TIDEWAYS_APIKEY']) ? $_SERVER['TIDEWAYS_APIKEY'] : ini_get("tideways.api_key"));
+        $sampleRate = $sampleRate ?: (isset($_SERVER['TIDEWAYS_SAMPLERATE']) ? intval($_SERVER['TIDEWAYS_SAMPLERATE']) : ini_get("tideways.sample_rate"));
 
         if (strlen((string)$apiKey) === 0) {
             return;
@@ -256,20 +258,20 @@ class Profiler
             return;
         }
 
-        self::$profiling = self::decideProfiling($sampleRate);
-
         if (self::$extension === self::EXTENSION_TIDEWAYS) {
-            if (self::$profiling === true) {
+            if (self::decideProfiling($sampleRate)) {
                 tideways_enable(0, self::$defaultOptions);
+                self::$mode = self::MODE_PROFILING;
             } else if (self::$defaultOptions['transaction_function']) {
                 tideways_enable(
                     TIDEWAYS_FLAGS_NO_COMPILE | TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS,
                     array('tranasction_function' => self::$defaultOptions['transaction_function'])
                 );
-                self::$sampling = true;
+                self::$mode = self::MODE_SAMPLING;
             }
-        } elseif (self::$profiling === true && self::$extension === self::EXTENSION_XHPROF) {
+        } elseif (self::$extension === self::EXTENSION_XHPROF && self::decideProfiling($sampleRate)) {
             xhprof_enable(0, self::$defaultOptions);
+            self::$mode = self::MODE_PROFILING;
         }
     }
 
@@ -311,9 +313,8 @@ class Profiler
      */
     public static function ignoreTransaction()
     {
-        if (self::$started && (self::$profiling || self::$sampling)) {
-            self::$profiling = false;
-            self::$sampling = false;
+        if (self::$mode > self::MODE_BASIC) {
+            self::$mode = self::MODE_NONE;
 
             if (self::$extension === self::EXTENSION_XHPROF) {
                 xhprof_disable();
@@ -322,7 +323,7 @@ class Profiler
             }
         }
 
-        self::$started = false;
+        self::$startTime = false;
     }
 
     private static function init($apiKey)
@@ -345,12 +346,14 @@ class Profiler
             self::$extension = self::EXTENSION_XHPROF;
         }
 
-        self::$profiling = false;
-        self::$sampling = false;
-        self::$apiKey = $apiKey;
-        self::$operationName = 'default';
+        self::$mode = self::MODE_BASIC;
+        self::$trace = array(
+            'apiKey' => $apiKey,
+            'id' => mt_rand(0, PHP_INT_MAX),
+            'tx' => 'default',
+        );
         self::$error = false;
-        self::$started = microtime(true);
+        self::$startTime = microtime(true);
         self::$currentRootSpan = self::createRootSpan();
     }
 
@@ -361,12 +364,12 @@ class Profiler
 
     public static function isStarted()
     {
-        return self::$started !== false;
+        return self::$mode !== self::MODE_NONE;
     }
 
     public static function isProfiling()
     {
-        return self::$profiling;
+        return self::$mode === self::MODE_PROFILING;
     }
 
     /**
@@ -389,7 +392,7 @@ class Profiler
      */
     public static function setCustomVariable($name, $value)
     {
-        if (!self::$profiling || !is_scalar($value)) {
+        if (self::$mode !== self::MODE_PROFILING || !is_scalar($value)) {
             return;
         }
 
@@ -407,7 +410,7 @@ class Profiler
      */
     public static function createSpan($name)
     {
-        return self::$profiling
+        return (self::$mode !== self::MODE_PROFILING)
             ? \Tideways\Traces\PhpSpan::createSpan($name)
             : new \Tideways\Traces\NullSpan();
     }
@@ -417,7 +420,7 @@ class Profiler
      */
     public static function currentDuration()
     {
-        return intval(round((microtime(true) - self::$started) * 1000));
+        return intval(round((microtime(true) - self::$startTime) * 1000));
     }
 
     /**
@@ -425,51 +428,36 @@ class Profiler
      */
     public static function stop()
     {
-        if (self::$started == false) {
+        if (self::$mode === self::MODE_NONE) {
             return;
         }
 
-        $data = null;
-        $sampling = self::$sampling;
+        self::$trace['profdata'] = null;
+        $mode = self::$mode;
 
-        if (self::$operationName === 'default' && self::$extension === self::EXTENSION_TIDEWAYS) {
-            self::$operationName = tideways_transaction_name() ?: 'default';
+        if (self::$trace['tx'] === 'default' && self::$extension === self::EXTENSION_TIDEWAYS) {
+            self::$trace['tx'] = tideways_transaction_name() ?: 'default';
         }
 
-        if (self::$sampling || self::$profiling) {
-            $data = (self::$extension === self::EXTENSION_TIDEWAYS)
+        if ($mode > self::MODE_BASIC) {
+            self::$trace['profdata'] = (self::$extension === self::EXTENSION_TIDEWAYS)
                 ? tideways_disable()
                 : xhprof_disable();
         }
 
         $duration = self::currentDuration();
 
-        self::$started = false;
-        self::$profiling = false;
-        self::$sampling = false;
+        self::$currentRootSpan->recordDuration($duration);
+        self::$startTime = false;
+        self::$mode = self::MODE_NONE;
+        self::$trace['spans'] = \Tideways\Traces\PhpSpan::getSpans(); // hardoded as long only 1 impl exists.
 
-        if (self::$error) {
-            self::storeError(self::$operationName, self::$error, $duration);
-        }
-
-        if (!$sampling && $data) {
-            $spans = \Tideways\Traces\PhpSpan::getSpans(); // hardoded as long only 1 impl exists.
-            self::storeProfile(self::$operationName, $data, $spans);
+        if ($mode === self::MODE_PROFILING) {
+            self::$backend->socketStore(self::$trace);
         } else {
-            self::storeMeasurement(self::$operationName, $duration, (self::$error !== false));
+            self::$backend->udpStore(self::$trace);
         }
-    }
-
-    private static function storeError($operationName, $errorData, $duration)
-    {
-        self::$backend->storeError(
-            array(
-                "op" => ($operationName === null ? '__unknown__' : $operationName),
-                "error" => $errorData,
-                "apiKey" => self::$apiKey,
-                "wt" => $duration,
-            )
-        );
+        self::$trace = null; // free memory
     }
 
     private static function createRootSpan()
@@ -498,8 +486,7 @@ class Profiler
             $annotations['title'] = basename($_SERVER['argv'][0]);
         }
 
-        self::$traceId = mt_rand(0, PHP_INT_MAX);
-        $span = \Tideways\Traces\PhpSpan::createSpan(self::$traceId, 'app');
+        $span = \Tideways\Traces\PhpSpan::createSpan('app');
         $span->annotate($annotations);
 
         return $span;
@@ -564,7 +551,7 @@ class Profiler
 
     public static function logFatal($message, $file, $line, $type = null, $trace = null)
     {
-        if (self::$error) {
+        if (self::$error === true) {
             return;
         }
 
@@ -572,54 +559,28 @@ class Profiler
             $type = E_USER_ERROR;
         }
 
-        $message = Profiler\SqlAnonymizer::anonymize($message);
-
-        self::$error = array(
-            "message" => $message,
-            "file" => $file,
-            "line" => $line,
+        self::$error = true;
+        self::$currentRootSpan->annotate(array(
+            "err" => $message,
+            "err_source" => $file . ':' . $line,
             "type" => $type,
-            "trace" => ($trace && is_array($trace)) ? self::anonymizeTrace($trace) : null,
-        );
+            "trace" => is_string($trace) ? $trace : null,
+        ));
     }
 
-    public static function logException(\Exception $e)
+    public static function logException(\Exception $exception)
     {
-        $exceptionClass = get_class($e);
-        $exceptionCode = $e->getCode();
-
-        $message = Profiler\SqlAnonymizer::anonymize($e->getMessage());
-
-        self::$error = array(
-            "message" => $message,
-            "file" => $e->getFile(),
-            "line" => $e->getLine(),
-            "type" => $exceptionClass . ($exceptionCode != 0 ? sprintf('(%s)', $exceptionCode) : ''),
-            "trace" => self::anonymizeTrace($e->getTrace()),
-        );
-    }
-
-    private static function anonymizeTrace($trace)
-    {
-        if (is_string($trace)) {
-            return $trace;
+        if (self::$error === true) {
+            return;
         }
 
-        foreach ($trace as $traceLineId => $traceLine) {
-            if (isset($traceLine['args'])) {
-
-                foreach ($traceLine['args'] as $argId => $arg) {
-                    if (is_object($arg)) {
-                        $traceLine['args'][$argId] = get_class($arg);
-                    } else {
-                        $traceLine['args'][$argId] = gettype($arg);
-                    }
-                }
-                $trace[$traceLineId] = $traceLine;
-
-            }
-        }
-        return $trace;
+        self::$error = true;
+        self::$currentRootSpan->annotate(array(
+            "err" => $exception->getMessage(),
+            "err_source" => $exception->getFile() . ':' . $exception->getLine(),
+            "exception" => get_class($exception),
+            "trace" => $exception->getTraceAsString(),
+        ));
     }
 
     public static function shutdown()

@@ -21,7 +21,6 @@ use Tideways\Profiler;
  */
 class PhpSpan extends Span
 {
-    const TRACE_ID = 'tid';
     const NAME = 'n';
     const STARTS = 'b';
     const STOPS = 'e';
@@ -37,10 +36,10 @@ class PhpSpan extends Span
      */
     private $timerRunning = false;
 
-    static public function createSpan($traceId = null, $name = null)
+    static public function createSpan($name = null)
     {
         $idx = count(self::$spans);
-        return new self($idx, $traceId, $name);
+        return new self($idx, $name);
     }
 
     static public function clear()
@@ -53,7 +52,7 @@ class PhpSpan extends Span
         return self::$spans;
     }
 
-    public function __construct($idx, $traceId = null, $name = null)
+    public function __construct($idx, $name = null)
     {
         $this->id = $idx;
         self::$spans[$idx] = array(
@@ -61,9 +60,6 @@ class PhpSpan extends Span
             self::STOPS => array(),
             self::ANNOTATIONS => array(),
         );
-        if ($traceId) {
-            self::$spans[$idx][self::TRACE_ID] = $traceId;
-        }
         if ($name) {
             self::$spans[$idx][self::NAME] = $name;
         }

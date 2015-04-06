@@ -15,29 +15,37 @@ namespace Tideways\Profiler;
 
 class NetworkBackend implements Backend
 {
+    /**
+     * Old v1 type profile format.
+     *
+     * @var string
+     */
     const TYPE_PROFILE = 'profile';
-    const TYPE_ERROR = 'error';
+    /**
+     * v2 type traces
+     */
+    const TYPE_TRACE = 'trace';
 
     private $socketFile;
     private $udp;
 
-    public function __construct($socketFile = "unix:///tmp/qprofd.sock", $udp = "127.0.0.1:8135")
+    public function __construct($socketFile = "unix:///var/run/tideways/tidewaysd.sock", $udp = "127.0.0.1:8135")
     {
         $this->socketFile = $socketFile;
         $this->udp = $udp;
     }
 
+    /**
+     * To avoid user apps messing up socket errors that Tideways can produce
+     * when the daemon is not reachable, this error handler is used
+     * wrapped around daemons to guard user apps from erroring.
+     */
     public static function ignoreErrorsHandler($errno, $errstr, $errfile, $errline)
     {
         // ignore all errors!
     }
 
-    public function storeProfile(array $data)
-    {
-        $this->storeThroughFileSocket(self::TYPE_PROFILE, $data);
-    }
-
-    private function storeThroughFileSocket($dataType, array $data)
+    public function socketStore(array $trace)
     {
         set_error_handler(array(__CLASS__, "ignoreErrorsHandler"));
         $fp = stream_socket_client($this->socketFile);
@@ -48,12 +56,12 @@ class NetworkBackend implements Backend
         }
 
         stream_set_timeout($fp, 0, 10000); // 10 milliseconds max
-        fwrite($fp, json_encode(array('type' => $dataType, 'payload' => $data)));
+        fwrite($fp, json_encode(array('type' => self::TYPE_TRACE, 'payload' => $trace)));
         fclose($fp);
         restore_error_handler();
     }
 
-    public function storeMeasurement(array $data)
+    public function udpStore(array $trace)
     {
         set_error_handler(array(__CLASS__, "ignoreErrorsHandler"));
         $fp = stream_socket_client("udp://" . $this->udp);
@@ -64,13 +72,8 @@ class NetworkBackend implements Backend
         }
 
         stream_set_timeout($fp, 0, 200);
-        fwrite($fp, json_encode($data, JSON_FORCE_OBJECT));
+        fwrite($fp, json_encode($trace, JSON_FORCE_OBJECT));
         fclose($fp);
         restore_error_handler();
-    }
-
-    public function storeError(array $data)
-    {
-        $this->storeThroughFileSocket(self::TYPE_ERROR, $data);
     }
 }

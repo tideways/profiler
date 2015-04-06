@@ -16,7 +16,7 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         $alwaysSample = 100;
 
         $backend = self::createBackend();
-        $backend->expects($this->once())->method('storeProfile');
+        $backend->expects($this->once())->method('socketStore');
 
         \Tideways\Profiler::start('foo', $alwaysSample);
         \Tideways\Profiler::setTransactionName(__CLASS__ . '::' . __METHOD__);
@@ -32,12 +32,12 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
 
     public function testStartStopMeasurement()
     {
-        $alwaysSample = 0;
+        $neverSample = 0;
 
         $backend = self::createBackend();
-        $backend->expects($this->once())->method('storeMeasurement');
+        $backend->expects($this->once())->method('udpStore');
 
-        \Tideways\Profiler::start('foo', $alwaysSample);
+        \Tideways\Profiler::start('foo', $neverSample);
         \Tideways\Profiler::setTransactionName(__CLASS__ . '::' . __METHOD__);
 
         $this->assertFalse(\Tideways\Profiler::isProfiling());
