@@ -122,6 +122,11 @@ class Profiler
         self::$backend = $backend;
     }
 
+    public static function detectExceptionFunction($function)
+    {
+        self::$defaultOptions['exception_function'] = $function;
+    }
+
     /**
      * Instruct Tideways Profiler to automatically detect transaction names during profiling.
      *
@@ -541,6 +546,10 @@ class Profiler
             self::$operationName = tideways_transaction_name() ?: 'default';
         }
 
+        if (function_exists('tideways_last_detected_exception') && $exception = tideways_last_detected_exception()) {
+            self::logException($exception);
+        }
+
         if (self::$sampling || self::$profiling) {
             $disable = self::$extensionPrefix . '_disable';
             $data = $disable();
@@ -663,6 +672,10 @@ class Profiler
             $type = E_USER_ERROR;
         }
 
+        $trace = is_array($trace)
+            ? \Tideways\Profiler\BacktraceConverter::convertToString($trace)
+            : $trace;
+
         $message = Profiler\SqlAnonymizer::anonymize($message);
 
         self::$error = array(
@@ -670,7 +683,7 @@ class Profiler
             "file" => $file,
             "line" => $line,
             "type" => $type,
-            "trace" => ($trace && is_array($trace)) ? self::anonymizeTrace($trace) : null,
+            "trace" => $trace,
         );
     }
 
@@ -686,38 +699,17 @@ class Profiler
             "file" => $e->getFile(),
             "line" => $e->getLine(),
             "type" => $exceptionClass . ($exceptionCode != 0 ? sprintf('(%s)', $exceptionCode) : ''),
-            "trace" => self::anonymizeTrace($e->getTrace()),
+            "trace" => \Tideways\Profiler\BacktraceConverter::convertToString($e->getTrace()),
         );
-    }
-
-    private static function anonymizeTrace($trace)
-    {
-        if (is_string($trace)) {
-            return $trace;
-        }
-
-        foreach ($trace as $traceLineId => $traceLine) {
-            if (isset($traceLine['args'])) {
-
-                foreach ($traceLine['args'] as $argId => $arg) {
-                    if (is_object($arg)) {
-                        $traceLine['args'][$argId] = get_class($arg);
-                    } else {
-                        $traceLine['args'][$argId] = gettype($arg);
-                    }
-                }
-                $trace[$traceLineId] = $traceLine;
-
-            }
-        }
-        return $trace;
     }
 
     public static function shutdown()
     {
-        if ((self::$extensionFlags & self::EXT_FATAL) > 0) {
-            $callback = self::$extensionPrefix . '_last_fatal_error';
-            $lastError = $callback();
+        if (function_exists('tideways_fatal_backtrace')) {
+            $lastError = error_get_last();
+            $lastError['trace'] = tideways_fatal_backtrace();
+        } else if (function_exists('tideways_last_fatal_error')) {
+            $lastError = tideways_last_fatal_error();
         } else {
             $lastError = error_get_last();
         }
