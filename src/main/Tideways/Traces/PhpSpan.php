@@ -92,7 +92,7 @@ class PhpSpan extends Span
                 continue;
             }
 
-            self::$spans[$this->id][self::ANNOTATIONS][$name] = $value;
+            self::$spans[$this->id][self::ANNOTATIONS][$name] = (string)$value;
         }
     }
 
