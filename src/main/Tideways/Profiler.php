@@ -442,9 +442,16 @@ class Profiler
         }
 
         if ($mode > self::MODE_BASIC) {
-            self::$trace['profdata'] = (self::$extension === self::EXTENSION_TIDEWAYS)
-                ? tideways_disable()
-                : xhprof_disable();
+            $annotations = array('mem' => ceil(memory_get_peak_usage() / 1024));
+            if (self::$extension === self::EXTENSION_TIDEWAYS) {
+                $annotations['xhpv'] = phpversion('tideways');
+                self::$trace['profdata'] = tideways_disable();
+            } elseif (self::$extension === self::EXTENSION_XHPROF) {
+                $annotations['xhpv'] = phpversion('xhprof');
+                self::$trace['profdata'] = xhprof_disable();
+            }
+
+            self::$currentRootSpan->annotate($annotations);
         }
 
         if (function_exists('tideways_last_detected_exception') && $exception = tideways_last_detected_exception()) {
@@ -471,12 +478,6 @@ class Profiler
         \Tideways\Traces\PhpSpan::clear();
 
         $annotations = array();
-
-        if (self::$extension === self::EXTENSION_TIDEWAYS) {
-            $annotations['xhpv'] = phpversion('tideways');
-        } elseif (self::$extension === self::EXTENSION_XHPROF) {
-            $annotations['xhpv'] = phpversion('xhprof');
-        }
 
         if (isset($_SERVER['REQUEST_URI'])) {
             $annotations['title'] = '';
