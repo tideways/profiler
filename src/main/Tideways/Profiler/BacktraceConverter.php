@@ -23,15 +23,32 @@ class BacktraceConverter
         $trace = '';
 
         foreach ($backtrace as $k => $v) {
-            if (!isset($v['function']) || !isset($v['args'])) {
+            if (!isset($v['function'])) {
                 continue;
             }
 
-            $args = implode(', ', array_map(function ($arg) {
-                return (is_object($arg)) ? get_class($arg) : gettype($arg);
-            }, $v['args']));
+            if (!isset($v['file'])) {
+                $v['file'] = '';
+                $v['line'] = '';
+            }
 
-            $trace .= '#' . ($k) . ' ' . $v['file'] . '(' . $v['line'] . '): ' . (isset($v['class']) ? $v['class'] . '->' : '') . $v['function'] . '(' . $args .')' . "\n";
+            $args = '';
+            if (isset($v['args'])) {
+                $args = implode(', ', array_map(function ($arg) {
+                    return (is_object($arg)) ? get_class($arg) : gettype($arg);
+                }, $v['args']));
+            }
+
+            $trace .= '#' . ($k) . ' ';
+            if (isset($v['file'])) {
+                $trace .= $v['file'] . '(' . $v['line'] . '): ';
+            }
+
+            if (isset($v['class'])) {
+                $trace .= $v['class'] . '->';
+            }
+
+            $trace .= $v['function'] . '(' . $args .')' . "\n";
         }
 
         return $trace;
