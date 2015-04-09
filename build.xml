@@ -14,6 +14,9 @@
             </header>
             <path>
                 <filelist dir="src">
+                    <file name="main/Tideways/Traces/Span.php" />
+                    <file name="main/Tideways/Traces/NullSpan.php" />
+                    <file name="main/Tideways/Traces/PhpSpan.php" />
                     <file name="main/Tideways/Profiler/Backend.php" />
                     <file name="main/Tideways/Profiler/NetworkBackend.php" />
                     <file name="main/Tideways/Profiler/BacktraceConverter.php" />
