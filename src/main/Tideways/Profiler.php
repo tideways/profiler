@@ -123,6 +123,11 @@ class Profiler
         self::$backend = $backend;
     }
 
+    public static function detectExceptionFunction($function)
+    {
+        self::$defaultOptions['exception_function'] = $function;
+    }
+
     /**
      * Instruct Tideways Profiler to automatically detect transaction names during profiling.
      *
@@ -442,6 +447,10 @@ class Profiler
                 : xhprof_disable();
         }
 
+        if (function_exists('tideways_last_detected_exception') && $exception = tideways_last_detected_exception()) {
+            self::logException($exception);
+        }
+
         $duration = self::currentDuration();
 
         self::$currentRootSpan->recordDuration($duration);
@@ -533,12 +542,16 @@ class Profiler
             $type = E_USER_ERROR;
         }
 
+        $trace = is_array($trace)
+            ? \Tideways\Profiler\BacktraceConverter::convertToString($trace)
+            : $trace;
+
         self::$error = true;
         self::$currentRootSpan->annotate(array(
             "err" => $message,
             "err_source" => $file . ':' . $line,
             "exception" => 'EngineException', // Forward compatibility with PHP7
-            "trace" => is_string($trace) ? $trace : null,
+            "trace" => $trace,
         ));
     }
 
@@ -553,7 +566,7 @@ class Profiler
             "err" => $exception->getMessage(),
             "err_source" => $exception->getFile() . ':' . $exception->getLine(),
             "exception" => get_class($exception),
-            "trace" => $exception->getTraceAsString(),
+            "trace" => \Tideways\Profiler\BacktraceConverter::convertToString($exception->getTrace()),
         ));
     }
 
@@ -563,7 +576,14 @@ class Profiler
             return;
         }
 
-        $lastError = error_get_last();
+        if (function_exists('tideways_fatal_backtrace')) {
+            $lastError = error_get_last();
+            $lastError['trace'] = tideways_fatal_backtrace();
+        } else if (function_exists('tideways_last_fatal_error')) {
+            $lastError = tideways_last_fatal_error();
+        } else {
+            $lastError = error_get_last();
+        }
 
         if ($lastError && ($lastError["type"] === E_ERROR || $lastError["type"] === E_PARSE || $lastError["type"] === E_COMPILE_ERROR)) {
             self::logFatal(

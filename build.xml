@@ -16,6 +16,7 @@
                 <filelist dir="src">
                     <file name="main/Tideways/Profiler/Backend.php" />
                     <file name="main/Tideways/Profiler/NetworkBackend.php" />
+                    <file name="main/Tideways/Profiler/BacktraceConverter.php" />
                     <file name="main/Tideways/Profiler.php" />
                     <file name="main/QafooLabs/Profiler.php" />
                     <file name="scripts/auto_start.php" />
