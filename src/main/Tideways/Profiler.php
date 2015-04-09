@@ -441,14 +441,27 @@ class Profiler
             self::$trace['tx'] = tideways_transaction_name() ?: 'default';
         }
 
+        $profilingData = array();
         if ($mode > self::MODE_BASIC) {
+            if (self::$extension === self::EXTENSION_TIDEWAYS) {
+                $profilingData = tideways_disable();
+            } elseif (self::$extension === self::EXTENSION_XHPROF) {
+                $profilingData = xhprof_disable();
+            }
+        }
+
+        if ($mode == self::MODE_PROFILING) {
+            self::$trace['profdata'] = $profilingData;
             $annotations = array('mem' => ceil(memory_get_peak_usage() / 1024));
+
             if (self::$extension === self::EXTENSION_TIDEWAYS) {
                 $annotations['xhpv'] = phpversion('tideways');
-                self::$trace['profdata'] = tideways_disable();
             } elseif (self::$extension === self::EXTENSION_XHPROF) {
                 $annotations['xhpv'] = phpversion('xhprof');
-                self::$trace['profdata'] = xhprof_disable();
+            }
+
+            if (extension_loaded('xdebug')) {
+                $annotations['xdebug'] = '1';
             }
 
             self::$currentRootSpan->annotate($annotations);
