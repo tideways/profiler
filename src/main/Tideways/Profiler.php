@@ -595,13 +595,7 @@ class Profiler
         if ($lastError && ($lastError["type"] === E_ERROR || $lastError["type"] === E_PARSE || $lastError["type"] === E_COMPILE_ERROR)) {
             $lastError['trace'] = function_exists('tideways_fatal_backtrace') ? tideways_fatal_backtrace() : null;
 
-            self::logFatal(
-                $lastError["message"],
-                $lastError["file"],
-                $lastError["line"],
-                $lastError["type"],
-                isset($lastError["trace"]) ? $lastError["trace"] : null
-            );
+            self::logFatal($lastError['message'], $lastError['file'], $lastError['line'], $lastError['type'], $lastError['trace']);
         } elseif (function_exists("http_response_code") && http_response_code() >= 500) {
             self::logFatal("PHP request set error HTTP response code to '" . http_response_code() . "'.", "", 0, E_USER_ERROR);
         }
