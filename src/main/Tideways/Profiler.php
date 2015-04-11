@@ -434,7 +434,6 @@ class Profiler
             return;
         }
 
-        self::$trace['profdata'] = null;
         $mode = self::$mode;
 
         if (self::$trace['tx'] === 'default' && self::$extension === self::EXTENSION_TIDEWAYS) {
@@ -464,6 +463,22 @@ class Profiler
                 $annotations['xdebug'] = '1';
             }
 
+            if (isset($_SERVER['REQUEST_URI'])) {
+                $annotations['title'] = '';
+                if (isset($_SERVER['REQUEST_METHOD'])) {
+                    $annotations['title'] = $_SERVER["REQUEST_METHOD"] . ' ';
+                }
+
+                if (isset($_SERVER['HTTP_HOST'])) {
+                    $annotations['title'] .= (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . self::getRequestUri();
+                } elseif(isset($_SERVER['SERVER_ADDR'])) {
+                    $annotations['title'] .= (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['SERVER_ADDR'] . self::getRequestUri();
+                }
+
+            } elseif (php_sapi_name() === "cli") {
+                $annotations['title'] = basename($_SERVER['argv'][0]);
+            }
+
             self::$currentRootSpan->annotate($annotations);
         }
 
@@ -490,26 +505,7 @@ class Profiler
     {
         \Tideways\Traces\PhpSpan::clear();
 
-        $annotations = array();
-
-        if (isset($_SERVER['REQUEST_URI'])) {
-            $annotations['title'] = '';
-            if (isset($_SERVER['REQUEST_METHOD'])) {
-                $annotations['title'] = $_SERVER["REQUEST_METHOD"] . ' ';
-            }
-
-            if (isset($_SERVER['HTTP_HOST'])) {
-                $annotations['title'] .= (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . self::getRequestUri();
-            } elseif(isset($_SERVER['SERVER_ADDR'])) {
-                $annotations['title'] .= (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['SERVER_ADDR'] . self::getRequestUri();
-            }
-
-        } elseif (php_sapi_name() === "cli") {
-            $annotations['title'] = basename($_SERVER['argv'][0]);
-        }
-
         $span = \Tideways\Traces\PhpSpan::createSpan('app');
-        $span->annotate($annotations);
 
         return $span;
     }

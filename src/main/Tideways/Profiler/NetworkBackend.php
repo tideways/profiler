@@ -71,8 +71,12 @@ class NetworkBackend implements Backend
             return;
         }
 
+        $payload = json_encode($trace);
+        // Golang is very strict about json types.
+        $payload = str_replace('"a":[]', '"a":{}', $payload);
+
         stream_set_timeout($fp, 0, 200);
-        fwrite($fp, json_encode($trace));
+        fwrite($fp, $payload);
         fclose($fp);
         restore_error_handler();
     }
