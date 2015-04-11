@@ -1,14 +1,6 @@
 <?xml version="1.0" ?>
 <project name="Tideways PHP Client">
-    <target name="test">
-        <exec executable="php" failonerror="true">
-            <arg value="-d" />
-            <arg value="tideways.auto_prepend_library=0" />
-            <arg value="/usr/local/bin/phpunit" />
-        </exec>
-    </target>
-
-    <target name="generate-single-file">
+    <target name="compile">
         <concat destfile="Tideways.php" overwrite="true">
             <header filtering="no" trimleading="yes">&lt;?php
             </header>
@@ -52,5 +44,27 @@
                 -->
             </filterchain>
         </concat>
+    </target>
+
+    <target name="test">
+        <exec executable="php" failonerror="true">
+            <arg value="-d" />
+            <arg value="tideways.auto_prepend_library=0" />
+            <arg value="/usr/local/bin/phpunit" />
+        </exec>
+    </target>
+
+    <target name="install" depends="compile">
+        <exec executable="php" outputproperty="php.extension_dir" failonerror="true">
+            <arg value="-r" />
+            <arg value="echo ini_get('extension_dir');" />
+        </exec>
+        <echo message="Copy to ${php.extension_dir}/Tideways.php" />
+        <exec executable="sudo" failonerror="true">
+            <arg value="cp" />
+            <arg value="--remove-destination" />
+            <arg value="Tideways.php" />
+            <arg value="${php.extension_dir}/Tideways.php" />
+        </exec>
     </target>
 </project>
