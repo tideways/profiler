@@ -590,16 +590,11 @@ class Profiler
             return;
         }
 
-        if (function_exists('tideways_fatal_backtrace')) {
-            $lastError = error_get_last();
-            $lastError['trace'] = tideways_fatal_backtrace();
-        } else if (function_exists('tideways_last_fatal_error')) {
-            $lastError = tideways_last_fatal_error();
-        } else {
-            $lastError = error_get_last();
-        }
+        $lastError = error_get_last();
 
         if ($lastError && ($lastError["type"] === E_ERROR || $lastError["type"] === E_PARSE || $lastError["type"] === E_COMPILE_ERROR)) {
+            $lastError['trace'] = function_exists('tideways_fatal_backtrace') ? tideways_fatal_backtrace() : null;
+
             self::logFatal(
                 $lastError["message"],
                 $lastError["file"],

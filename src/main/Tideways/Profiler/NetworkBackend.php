@@ -72,7 +72,7 @@ class NetworkBackend implements Backend
         }
 
         stream_set_timeout($fp, 0, 200);
-        fwrite($fp, json_encode($trace, JSON_FORCE_OBJECT));
+        fwrite($fp, json_encode($trace));
         fclose($fp);
         restore_error_handler();
     }
