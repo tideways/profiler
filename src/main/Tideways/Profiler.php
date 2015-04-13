@@ -284,7 +284,7 @@ class Profiler
 
         tideways_enable(
             TIDEWAYS_FLAGS_NO_COMPILE | TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS,
-            array('tranasction_function' => self::$defaultOptions['transaction_function'])
+            array('transaction_function' => self::$defaultOptions['transaction_function'])
         );
 
         self::$sampling = true;
