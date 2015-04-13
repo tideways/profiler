@@ -118,7 +118,7 @@ class Profiler
     private static $backend;
     private static $extension = self::EXTENSION_NONE;
 
-    public static function setBackend(Profiler\Backend $backend)
+    public static function setBackend(Profiler\Backend $backend = null)
     {
         self::$backend = $backend;
     }
@@ -493,7 +493,7 @@ class Profiler
         self::$mode = self::MODE_NONE;
         self::$trace['spans'] = \Tideways\Traces\PhpSpan::getSpans(); // hardoded as long only 1 impl exists.
 
-        if ($mode === self::MODE_PROFILING) {
+        if (self::$error === true || $mode === self::MODE_PROFILING) {
             self::$backend->socketStore(self::$trace);
         } else {
             self::$backend->udpStore(self::$trace);
@@ -558,10 +558,10 @@ class Profiler
 
         self::$error = true;
         self::$currentRootSpan->annotate(array(
-            "err" => $message,
+            "err_msg" => $message,
             "err_source" => $file . ':' . $line,
-            "exception" => 'EngineException', // Forward compatibility with PHP7
-            "trace" => $trace,
+            "err_exception" => 'EngineException', // Forward compatibility with PHP7
+            "err_trace" => $trace,
         ));
     }
 
@@ -573,10 +573,10 @@ class Profiler
 
         self::$error = true;
         self::$currentRootSpan->annotate(array(
-            "err" => $exception->getMessage(),
+            "err_msg" => $exception->getMessage(),
             "err_source" => $exception->getFile() . ':' . $exception->getLine(),
-            "exception" => get_class($exception),
-            "trace" => \Tideways\Profiler\BacktraceConverter::convertToString($exception->getTrace()),
+            "err_exception" => get_class($exception),
+            "err_trace" => \Tideways\Profiler\BacktraceConverter::convertToString($exception->getTrace()),
         ));
     }
 

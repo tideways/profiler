@@ -10,6 +10,7 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
             $this->markTestSkipped('Cannot run tests when tideways is installed and loaded globally. Run with -dtideways.auto_prepend_library=0');
         }
         \Tideways\Profiler::stop();
+        \Tideways\Profiler::setBackend(null);
 
         if (\Tideways\Profiler::isStarted()) {
             $this->fail('Profiler is already running');
@@ -121,9 +122,9 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         $neverProfile = 0;
 
         $backend = self::createBackend();
-        $backend->expects($this->once())->method('udpStore')->will($this->returnCallback(function($trace) {
+        $backend->expects($this->once())->method('socketStore')->will($this->returnCallback(function($trace) {
             $annotations = $trace['spans'][0]['a'];
-            $this->assertEquals('errmsg', $annotations['err']);
+            $this->assertEquals('errmsg', $annotations['err_msg']);
             $this->assertEquals('foo.php:11', $annotations['err_source']);
         }));
 
@@ -137,11 +138,11 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         $neverProfile = 0;
 
         $backend = self::createBackend();
-        $backend->expects($this->once())->method('udpStore')->will($this->returnCallback(function($trace) {
+        $backend->expects($this->once())->method('socketStore')->will($this->returnCallback(function($trace) {
             $annotations = $trace['spans'][0]['a'];
-            $this->assertEquals('Testing exceptions', $annotations['err']);
+            $this->assertEquals('Testing exceptions', $annotations['err_msg']);
             $this->assertContains('ProfilerTest.php:', $annotations['err_source']);
-            $this->assertEquals('RuntimeException', $annotations['exception']);
+            $this->assertEquals('RuntimeException', $annotations['err_exception']);
         }));
 
         $exception = new \RuntimeException('Testing exceptions');
