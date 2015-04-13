@@ -159,10 +159,12 @@ class Profiler
 
             case self::FRAMEWORK_SYMFONY2_COMPONENT:
                 self::$defaultOptions['transaction_function'] = 'Symfony\Component\HttpKernel\Controller\ControllerResolver::createController';
+                self::$defaultOptions['exception_function'] = 'Symfony\Component\HttpKernel\HttpKernel::handleException';
                 break;
 
             case self::FRAMEWORK_SYMFONY2_FRAMEWORK:
                 self::$defaultOptions['transaction_function'] = 'Symfony\Bundle\FrameworkBundle\Controller\ControllerResolver::createController';
+                self::$defaultOptions['exception_function'] = 'Symfony\Component\HttpKernel\HttpKernel::handleException';
                 break;
 
             case self::FRAMEWORK_OXID:
@@ -569,6 +571,11 @@ class Profiler
     {
         if (self::$error === true) {
             return;
+        }
+
+        // We are only interested in the original exception
+        while ($previous = $exception->getPrevious()) {
+            $exception = $previous;
         }
 
         self::$error = true;
