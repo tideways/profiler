@@ -54,7 +54,7 @@ namespace Tideways;
  */
 class Profiler
 {
-    const VERSION = '1.5.0';
+    const VERSION = '2.0.0';
 
     const MODE_NONE = 0;
     const MODE_BASIC = 1;
