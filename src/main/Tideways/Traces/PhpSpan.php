@@ -102,8 +102,8 @@ class PhpSpan extends Span
             return;
         }
 
-        self::$spans[$this->id][self::STARTS][] = $start;
-        self::$spans[$this->id][self::STOPS][] = $start + $duration;
+        self::$spans[$this->id][self::STARTS][] = (int)$start;
+        self::$spans[$this->id][self::STOPS][] = (int)($start + $duration);
     }
 
     public function toArray()

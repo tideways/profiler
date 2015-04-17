@@ -259,22 +259,26 @@ class Profiler
         self::init($apiKey);
 
         if (self::$extension === self::EXTENSION_NONE) {
+            self::$startTime = microtime(true);
             return;
         }
 
         if (self::$extension === self::EXTENSION_TIDEWAYS) {
             if (self::decideProfiling($sampleRate)) {
                 tideways_enable(0, self::$defaultOptions);
+                self::$startTime = microtime(true);
                 self::$mode = self::MODE_PROFILING;
             } else if (self::$defaultOptions['transaction_function']) {
                 tideways_enable(
                     TIDEWAYS_FLAGS_NO_COMPILE | TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS,
                     array('transaction_function' => self::$defaultOptions['transaction_function'])
                 );
+                self::$startTime = microtime(true);
                 self::$mode = self::MODE_SAMPLING;
             }
         } elseif (self::$extension === self::EXTENSION_XHPROF && self::decideProfiling($sampleRate)) {
             xhprof_enable(0, self::$defaultOptions);
+            self::$startTime = microtime(true);
             self::$mode = self::MODE_PROFILING;
         }
     }
@@ -357,7 +361,6 @@ class Profiler
             'tx' => 'default',
         );
         self::$error = false;
-        self::$startTime = microtime(true);
         self::$currentRootSpan = self::createRootSpan();
     }
 
