@@ -305,6 +305,10 @@ class Profiler
             $message = 'method=' . $vars['method'] . '&time=' . $vars['time'] . '&user=' . $vars['user'];
 
             if ($vars['time'] > time() && hash_hmac('sha256', $message, md5(self::$trace['apiKey'])) === $vars['hash']) {
+                if (self::$currentRootSpan) {
+                    self::$currentRootSpan->annotate(array('dev' => $vars['user']));
+                }
+
                 return true;
             }
         }
