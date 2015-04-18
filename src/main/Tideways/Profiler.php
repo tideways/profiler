@@ -311,6 +311,10 @@ class Profiler
 
     private static function decideProfiling($treshold)
     {
+        if (isset(self::$trace['pid']) && isset(self::$trace['sid'])) {
+            return true;
+        }
+
         $vars = array();
 
         if (isset($_SERVER['HTTP_X_TIDEWAYS_PROFILER']) && is_string($_SERVER['HTTP_X_TIDEWAYS_PROFILER'])) {
@@ -393,11 +397,11 @@ class Profiler
             'tx' => 'default',
         );
 
-        if ($distributedId === null && self::$distributedTracing === true && isset($_SERVER['HTTP_TW_TRACEID']) && isset($_SERVER['HTTP_TW_SPANID'])) {
+        if ($distributedId === null && self::$distributedTracing === true && isset($_SERVER['HTTP_X_TW_TRACEID']) && isset($_SERVER['HTTP_X_TW_SPANID'])) {
             $distributedId = new DistributedId(
-                (int)$_SERVER['HTTP_TW_SPANID'],
-                (int)$_SERVER['HTTP_TW_TRACEID'],
-                isset($_SERVER['HTTP_TW_ROOTID']) ? (int)$_SERVER['HTTP_TW_ROOTID'] : null
+                (int)$_SERVER['HTTP_X_TW_SPANID'],
+                (int)$_SERVER['HTTP_X_TW_TRACEID'],
+                isset($_SERVER['HTTP_X_TW_ROOTID']) ? (int)$_SERVER['HTTP_X_TW_ROOTID'] : null
             );
         }
 
