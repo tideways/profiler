@@ -366,7 +366,7 @@ class Profiler
 
     public static function setTransactionName($name)
     {
-        self::$trace['tx'] = !empty($name) ? $name : 'empty';
+        self::$trace['tx'] = !empty($name) ? $name : 'default';
     }
 
     public static function isStarted()
