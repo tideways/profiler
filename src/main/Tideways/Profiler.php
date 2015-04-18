@@ -369,6 +369,14 @@ class Profiler
         self::$trace['tx'] = !empty($name) ? $name : 'default';
     }
 
+    /**
+     * @deprecated
+     */
+    public static function setOperationName($name)
+    {
+        self::setTransactionName($name);
+    }
+
     public static function isStarted()
     {
         return self::$mode !== self::MODE_NONE;
