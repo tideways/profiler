@@ -21,14 +21,11 @@ namespace Tideways\Traces;
 abstract class Span
 {
     /**
-     * @var int
+     * 32/64 bit random integer.
+     *
+     * @return int
      */
-    protected $id;
-
-    public function getId()
-    {
-        return $this->id;
-    }
+    public abstract function getId();
 
     /**
      * Record start of timer in microseconds.

@@ -16,7 +16,10 @@ class PhpSpanTest extends \PHPUnit_Framework_TestCase
     {
         $span = PhpSpan::createSpan('app');
 
-        $this->assertEquals(0, $span->getId());
+        $this->assertInternalType('integer', $span->getId());
+        $this->assertTrue(0 < $span->getId());
+
+        $this->assertEquals($span->getId(), $span->getId(), "Generates ID only once.");
     }
 
     /**

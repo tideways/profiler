@@ -21,6 +21,7 @@ use Tideways\Profiler;
  */
 class PhpSpan extends Span
 {
+    const ID = 'i';
     const NAME = 'n';
     const STARTS = 'b';
     const STOPS = 'e';
@@ -35,6 +36,11 @@ class PhpSpan extends Span
      * @var bool
      */
     private $timerRunning = false;
+
+    /**
+     * @var int
+     */
+    private $idx;
 
     static public function createSpan($name = null)
     {
@@ -54,7 +60,7 @@ class PhpSpan extends Span
 
     public function __construct($idx, $name = null)
     {
-        $this->id = $idx;
+        $this->idx = $idx;
         self::$spans[$idx] = array(
             self::STARTS => array(),
             self::STOPS => array(),
@@ -65,13 +71,22 @@ class PhpSpan extends Span
         }
     }
 
+    public function getId()
+    {
+        if (!isset(self::$spans[$this->idx][self::ID])) {
+            self::$spans[$this->idx][self::ID] = \Tideways\Profiler::generateRandomId();
+        }
+
+        return self::$spans[$this->idx][self::ID];
+    }
+
     public function startTimer()
     {
         if ($this->timerRunning) {
             return;
         }
 
-        self::$spans[$this->id][self::STARTS][] = Profiler::currentDuration();
+        self::$spans[$this->idx][self::STARTS][] = Profiler::currentDuration();
         $this->timerRunning = true;
     }
 
@@ -81,7 +96,7 @@ class PhpSpan extends Span
             return;
         }
 
-        self::$spans[$this->id][self::STOPS][] = Profiler::currentDuration();
+        self::$spans[$this->idx][self::STOPS][] = Profiler::currentDuration();
         $this->timerRunning = false;
     }
 
@@ -92,7 +107,7 @@ class PhpSpan extends Span
                 continue;
             }
 
-            self::$spans[$this->id][self::ANNOTATIONS][$name] = (string)$value;
+            self::$spans[$this->idx][self::ANNOTATIONS][$name] = (string)$value;
         }
     }
 
@@ -102,12 +117,12 @@ class PhpSpan extends Span
             return;
         }
 
-        self::$spans[$this->id][self::STARTS][] = (int)$start;
-        self::$spans[$this->id][self::STOPS][] = (int)($start + $duration);
+        self::$spans[$this->idx][self::STARTS][] = (int)$start;
+        self::$spans[$this->idx][self::STOPS][] = (int)($start + $duration);
     }
 
     public function toArray()
     {
-        return self::$spans[$this->id];
+        return self::$spans[$this->idx];
     }
 }

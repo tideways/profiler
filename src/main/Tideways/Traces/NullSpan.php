@@ -4,6 +4,11 @@ namespace Tideways\Traces;
 
 class NullSpan extends Span
 {
+    public function getId()
+    {
+        return 0;
+    }
+
     /**
      * Record start of timer in microseconds.
      *

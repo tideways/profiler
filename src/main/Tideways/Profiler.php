@@ -13,6 +13,8 @@
 
 namespace Tideways;
 
+use Tideways\Traces\DistributedId;
+
 /**
  * Tideways PHP API
  *
@@ -117,6 +119,27 @@ class Profiler
     private static $mode = self::MODE_NONE;
     private static $backend;
     private static $extension = self::EXTENSION_NONE;
+
+    /**
+     * Either true/false or a commaseperated list of IPs, IP-ranges to allow.
+     * @var string|bool
+     */
+    private static $distributedTracing = false;
+
+    /**
+     * Set an array of IPs, CIDR Addresses or 0.0.0.0/0 for all
+     * hosts that are allowed to start a distributed trace automatically.
+     */
+    public static function allowHttpDistributedAutoTracing(array $allow)
+    {
+        if (!$allow) {
+            self::$distributedTracing = false;
+        } else if ($allow[0] === "0.0.0.0/0") {
+            self::$distributedTracing = true;
+        } else {
+            self::$distributedTracing = false; // NOT IMPLEMENTED YET
+        }
+    }
 
     public static function setBackend(Profiler\Backend $backend = null)
     {
@@ -240,10 +263,13 @@ class Profiler
      *
      * @param string            $apiKey Application key can be found in "Settings" tab of Profiler UI
      * @param int               $sampleRate Sample rate in full percent (1= 1%, 20 = 20%). Defaults to every fifth request
+     * @param int               $mode Which kind of profiling to use.
+     * @param int|null          $parentSpanId
+     * @param int|null          $rootSpanId
      *
      * @return void
      */
-    public static function start($apiKey = null, $sampleRate = null)
+    public static function start($apiKey = null, $sampleRate = null, $mode = 0, DistributedId $distributedTrace = null)
     {
         if (self::$mode !== self::MODE_NONE) {
             return;
@@ -256,7 +282,7 @@ class Profiler
             return;
         }
 
-        self::init($apiKey);
+        self::init($apiKey, $distributedTrace);
 
         if (self::$extension === self::EXTENSION_NONE) {
             self::$startTime = microtime(true);
@@ -338,7 +364,7 @@ class Profiler
         self::$startTime = false;
     }
 
-    private static function init($apiKey)
+    private static function init($apiKey, DistributedId $distributedId = null)
     {
         if (self::$shutdownRegistered == false) {
             register_shutdown_function(array("Tideways\\Profiler", "shutdown"));
@@ -359,19 +385,59 @@ class Profiler
         }
 
         self::$mode = self::MODE_BASIC;
-        self::$trace = array(
-            'apiKey' => $apiKey,
-            'id' => mt_rand(0, PHP_INT_MAX),
-            'tx' => 'default',
-        );
         self::$error = false;
         self::$currentRootSpan = self::createRootSpan();
+        self::$trace = array(
+            'apiKey' => $apiKey,
+            'id' => self::generateRandomId(),
+            'tx' => 'default',
+        );
+
+        if ($distributedId === null && self::$distributedTracing === true && isset($_SERVER['HTTP_TW_TRACEID']) && isset($_SERVER['HTTP_TW_SPANID'])) {
+            $distributedId = new DistributedId(
+                (int)$_SERVER['HTTP_TW_SPANID'],
+                (int)$_SERVER['HTTP_TW_TRACEID'],
+                isset($_SERVER['HTTP_TW_ROOTID']) ? (int)$_SERVER['HTTP_TW_ROOTID'] : null
+            );
+        }
+
+        if ($distributedId) {
+            self::$trace['sid'] = $distributedId->parentSpanId;
+            self::$trace['pid'] = $distributedId->parentTraceId;
+            self::$trace['rid'] = $distributedId->rootTraceId;
+        }
+    }
+
+    /**
+     * Generates a random integer used for internal identification and correlation of traces.
+     *
+     * @return int
+     */
+    public static function generateRandomId()
+    {
+        return mt_rand(1, PHP_INT_MAX);
     }
 
     public static function setTransactionName($name)
     {
         self::$trace['tx'] = !empty($name) ? $name : 'default';
     }
+
+    /**
+     * @return int
+     */
+    public static function currentTraceId()
+    {
+        return isset(self::$trace['id']) ? self::$trace['id'] : 0;
+    }
+
+    public static function rootTraceId()
+    {
+        return isset(self::$trace['rid'])
+            ? self::$trace['rid']
+            : self::currentTraceId();
+    }
+
 
     /**
      * @deprecated
