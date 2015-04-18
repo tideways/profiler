@@ -16,6 +16,6 @@ class DistributedId
 
         $this->parentTraceId = $parentTraceId;
         $this->parentSpanId = $parentSpanId;
-        $this->rootTraceId = $rootTraceId ?: $parentSpanId;
+        $this->rootTraceId = $rootTraceId ?: $parentTraceId;
     }
 }
