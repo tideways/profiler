@@ -128,4 +128,31 @@ OUT
 OUT
             , $trace);
     }
+
+    public function testConvertTraceWithoutFunction()
+    {
+        $backtrace = [[]];
+
+        $trace = BacktraceConverter::convertToString($backtrace);
+
+        $this->assertEquals('', $trace);
+    }
+
+    public function testConvertTraceWithoutElements()
+    {
+        $backtrace = [];
+
+        $trace = BacktraceConverter::convertToString($backtrace);
+
+        $this->assertEquals('', $trace);
+    }
+
+    public function testConvertTraceWithoutLine()
+    {
+        $backtrace = [['function' => 'foo', 'file' => 'bar']];
+
+        $trace = BacktraceConverter::convertToString($backtrace);
+
+        $this->assertEquals("#0 bar(): foo()\n", $trace);
+    }
 }

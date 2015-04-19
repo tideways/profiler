@@ -29,6 +29,9 @@ class BacktraceConverter
 
             if (!isset($v['file'])) {
                 $v['file'] = '';
+            }
+
+            if (!isset($v['line'])) {
                 $v['line'] = '';
             }
 
