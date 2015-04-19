@@ -247,30 +247,39 @@ class Profiler
      * start() automatically invokes a register shutdown handler that stops and
      * transmits the profiling data to the local daemon for further processing.
      *
-     * @param string            $apiKey Application key can be found in "Settings" tab of Profiler UI
-     * @param int               $sampleRate Sample rate in full percent (1= 1%, 20 = 20%). Defaults to every fifth request
-     * @param int               $mode Which kind of profiling to use.
-     * @param int|null          $parentSpanId
-     * @param int|null          $rootSpanId
+     * @param array|string      $options Either options array or api key (when string)
+     * @param int               $sampleRate Deprecated, use "sample_rate" key in options instead.
      *
      * @return void
      */
-    public static function start($apiKey = null, $sampleRate = null, $preferredMode = self::MODE_FULL, DistributedId $distributedTrace = null)
+    public static function start($options = array(), $sampleRate = null)
     {
         if (self::$mode !== self::MODE_NONE) {
             return;
         }
 
-        $apiKey = $apiKey ?: (isset($_SERVER['TIDEWAYS_APIKEY']) ? $_SERVER['TIDEWAYS_APIKEY'] : ini_get("tideways.api_key"));
-        $sampleRate = $sampleRate ?: (isset($_SERVER['TIDEWAYS_SAMPLERATE']) ? intval($_SERVER['TIDEWAYS_SAMPLERATE']) : ini_get("tideways.sample_rate"));
+        if (!is_array($options)) {
+            $options = array('api_key' => $options);
+        }
+        if ($sampleRate !== null) {
+            $options['sample_rate'] = $sampleRate;
+        }
 
-        if (strlen((string)$apiKey) === 0) {
+        $defaultOptions = array(
+            'api_key' => isset($_SERVER['TIDEWAYS_APIKEY']) ? $_SERVER['TIDEWAYS_APIKEY'] : ini_get("tideways.api_key"),
+            'sample_rate' => isset($_SERVER['TIDEWAYS_SAMPLERATE']) ? intval($_SERVER['TIDEWAYS_SAMPLERATE']) : ini_get("tideways.sample_rate"),
+            'collect' => isset($_SERVER['TIDEWAYS_COLLECT']) ? $_SERVER['TIDEWAYS_COLLECT'] : (ini_get("tideways.collect") ?: self::MODE_FULL),
+            'monitor' => isset($_SERVER['TIDEWAYS_MONITOR']) ? $_SERVER['TIDEWAYS_MONITOR'] : (ini_get("tideways.monitor") ?: self::MODE_BASIC),
+            'distributed_trace' => null,
+        );
+        $options = array_merge($defaultOptions, $options);
+
+        if (strlen((string)$options['api_key']) === 0) {
             return;
         }
 
-        self::init($apiKey, $distributedTrace);
-
-        self::$mode = self::decideProfiling($sampleRate, $preferredMode);
+        self::init($options['api_key'], isset($options['distributed_trace']) ? $options['distributed_trace'] : null);
+        self::$mode = self::decideProfiling($options['sample_rate'], $options);
 
         if (self::$extension === self::EXTENSION_TIDEWAYS) {
             $flags = ((self::$mode & self::MODE_PROFILING) == 0)
@@ -288,10 +297,10 @@ class Profiler
      * Decide in which mode to start collecting data.
      *
      * @param int $treshold (0-100)
-     * @param int $preferredMode
+     * @param array $options
      * @return int
      */
-    private static function decideProfiling($treshold, $preferredMode)
+    private static function decideProfiling($treshold, array $options = array())
     {
         if (isset(self::$trace['pid']) && isset(self::$trace['sid'])) {
             self::$trace['keep'] = true; // always keep
@@ -324,9 +333,32 @@ class Profiler
             }
         }
 
+        $collectMode = self::convertMode($options['collect']);
+        $monitorMode = self::convertMode($options['monitor']) & self::MODE_BASIC;
+
         $rand = rand(1, 100);
 
-        return ($rand <= $treshold) ? $preferredMode : self::MODE_BASIC;
+        return ($rand <= $treshold) ? $collectMode : $monitorMode;
+    }
+
+    /**
+     * Make sure provided mode is converted to a valid integer value.
+     *
+     * @return int
+     */
+    private static function convertMode($mode)
+    {
+        if (is_string($mode)) {
+            $mode = defined('\Tideways\Profiler::MODE_' . strtoupper($preferredMode))
+                ? constant('\Tideways\Profiler::MODE_' . strtoupper($preferredMode))
+                : self::MODE_NONE;
+        } else if (!is_int($mode)) {
+            $mode = self::MODE_NONE;
+        } else if (($mode & (self::MODE_FULL|self::MODE_BASIC)) === 0) {
+            $mode = self::MODE_NONE;
+        }
+
+        return $mode;
     }
 
     /**
@@ -349,7 +381,7 @@ class Profiler
         self::$startTime = false;
     }
 
-    private static function init($apiKey, DistributedId $distributedId = null)
+    private static function init($apiKey, $distributedId = null)
     {
         if (self::$shutdownRegistered == false) {
             register_shutdown_function(array("Tideways\\Profiler", "shutdown"));
@@ -386,7 +418,7 @@ class Profiler
             );
         }
 
-        if ($distributedId) {
+        if ($distributedId instanceof DistributedId) {
             self::$trace['sid'] = $distributedId->parentSpanId;
             self::$trace['pid'] = $distributedId->parentTraceId;
             self::$trace['rid'] = $distributedId->rootTraceId;
