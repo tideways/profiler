@@ -37,22 +37,7 @@ use Tideways\Traces\DistributedId;
  *      Tideways\Profiler::stop();
  *
  * The method {@link setTransactionName} is required, failing to call
- * it will result in discarding of the data. You can automatically
- * guess a name using the following snippet:
- *
- *      Tideways\Profiler::useRequestAsTransactionName();
- *
- * If you want to collect custom timing data you can use for SQL:
- *
- *      $sql = "SELECT 1";
- *      $id = Tideways\Profiler::startSqlCustomTimer($sql);
- *      mysql_query($sql);
- *      Tideways\Profiler::stopCustomTimer($id);
- *
- * Or for any other timing data:
- *
- *      $id = Tideways\Profiler::startCustomTimer('solr', 'q=foo');
- *      Tideways\Profiler::stopCustomTimer($id);
+ * it will result in discarding of the data.
  */
 class Profiler
 {
@@ -524,6 +509,10 @@ class Profiler
             self::$trace['tx'] = tideways_transaction_name() ?: 'default';
         }
 
+        if (function_exists('tideways_last_detected_exception') && $exception = tideways_last_detected_exception()) {
+            self::logException($exception);
+        }
+
         $profilingData = array();
 
         if (($mode & self::MODE_FULL) > 0) {
@@ -568,10 +557,6 @@ class Profiler
             self::$trace['profdata'] = $profilingData ?: array();
         } else if (($mode & self::MODE_TRACING) > 0) {
             self::$trace['profdata'] = array('main()' => array('wt' => $duration * 1000, 'ct' => 1));
-        }
-
-        if (function_exists('tideways_last_detected_exception') && $exception = tideways_last_detected_exception()) {
-            self::logException($exception);
         }
 
         self::$currentRootSpan->recordDuration($duration);
