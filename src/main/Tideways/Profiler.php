@@ -705,26 +705,13 @@ class Profiler
 
     public static function shutdown()
     {
-        if (function_exists('tideways_fatal_backtrace')) {
-            $lastError = error_get_last();
-            $lastError['trace'] = tideways_fatal_backtrace();
-        } else if (function_exists('tideways_last_fatal_error')) {
-            $lastError = tideways_last_fatal_error();
-        } else {
-            $lastError = error_get_last();
-        }
+        $lastError = error_get_last();
 
         if ($lastError && ($lastError["type"] === E_ERROR || $lastError["type"] === E_PARSE || $lastError["type"] === E_COMPILE_ERROR)) {
-            self::logFatal(
-                $lastError["message"],
-                $lastError["file"],
-                $lastError["line"],
-                $lastError["type"],
-                isset($lastError["trace"]) ? $lastError["trace"] : null
-            );
-        }
+            $lastError['trace'] = function_exists('tideways_fatal_backtrace') ? tideways_fatal_backtrace() : null;
 
-        if (function_exists("http_response_code") && http_response_code() >= 500) {
+            self::logFatal($lastError['message'], $lastError['file'], $lastError['line'], $lastError['type'], $lastError['trace']);
+        } elseif (function_exists("http_response_code") && http_response_code() >= 500) {
             self::logFatal("PHP request set error HTTP response code to '" . http_response_code() . "'.", "", 0, E_USER_ERROR);
         }
 
