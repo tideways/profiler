@@ -281,7 +281,7 @@ class Profiler
      */
     private static function decideProfiling($treshold, array $options = array())
     {
-        if (isset(self::$trace['pid']) && isset(self::$trace['sid'])) {
+        if (isset(self::$trace['pid']) && isset(self::$trace['sid']) && self::$trace['sid'] > 0) {
             self::$trace['keep'] = true; // always keep
             return self::MODE_TRACING;
         }
@@ -485,7 +485,6 @@ class Profiler
             : self::currentTraceId();
     }
 
-
     /**
      * @deprecated
      */
@@ -502,6 +501,18 @@ class Profiler
     public static function isProfiling()
     {
         return (self::$mode & self::MODE_PROFILING) > 0;
+    }
+
+    /**
+     * Returns true if profiler is currently tracing spans.
+     *
+     * This can be used to check if adding X-TW-* HTTP headers makes sense.
+     *
+     * @return bool
+     */
+    public static function isTracing()
+    {
+        return (self::$mode & self::MODE_TRACING) > 0;
     }
 
     /**
