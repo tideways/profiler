@@ -106,27 +106,6 @@ class Profiler
     private static $backend;
     private static $extension = self::EXTENSION_NONE;
 
-    /**
-     * Either true/false or a commaseperated list of IPs, IP-ranges to allow.
-     * @var string|bool
-     */
-    private static $distributedTracing = true;
-
-    /**
-     * Set an array of IPs, CIDR Addresses or 0.0.0.0/0 for all
-     * hosts that are allowed to start a distributed trace automatically.
-     */
-    public static function allowHttpDistributedAutoTracing(array $allow)
-    {
-        if (!$allow) {
-            self::$distributedTracing = false;
-        } else if ($allow[0] === "0.0.0.0/0") {
-            self::$distributedTracing = true;
-        } else {
-            self::$distributedTracing = false; // NOT IMPLEMENTED YET
-        }
-    }
-
     public static function setBackend(Profiler\Backend $backend = null)
     {
         self::$backend = $backend;
@@ -270,6 +249,7 @@ class Profiler
             'sample_rate' => isset($_SERVER['TIDEWAYS_SAMPLERATE']) ? intval($_SERVER['TIDEWAYS_SAMPLERATE']) : ini_get("tideways.sample_rate"),
             'collect' => isset($_SERVER['TIDEWAYS_COLLECT']) ? $_SERVER['TIDEWAYS_COLLECT'] : (ini_get("tideways.collect") ?: self::MODE_FULL),
             'monitor' => isset($_SERVER['TIDEWAYS_MONITOR']) ? $_SERVER['TIDEWAYS_MONITOR'] : (ini_get("tideways.monitor") ?: self::MODE_BASIC),
+            'distributed_tracing_hosts' => isset($_SERVER['TIDEWAYS_ALLOWED_HOSTS']) ? $_SERVER['TIDEWAYS_ALLOWED_HOSTS'] : (ini_get("tideways.distributed_tracing_hosts") ?: '127.0.0.1'),
             'distributed_trace' => null,
         );
         $options = array_merge($defaultOptions, $options);
@@ -278,13 +258,12 @@ class Profiler
             return;
         }
 
-        self::init($options['api_key'], isset($options['distributed_trace']) ? $options['distributed_trace'] : null);
+        self::init($options['api_key'], $options['distributed_trace'], $options['distributed_tracing_hosts']);
         self::$mode = self::decideProfiling($options['sample_rate'], $options);
 
         if (self::$extension === self::EXTENSION_TIDEWAYS) {
-            $flags = ((self::$mode & self::MODE_PROFILING) == 0)
-                ? TIDEWAYS_FLAGS_NO_COMPILE | TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS
-                : 0;
+            $flags = ((self::$mode & self::MODE_PROFILING) === self::MODE_PROFILING)
+                ? 0 : TIDEWAYS_FLAGS_NO_COMPILE | TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS;
 
             tideways_enable($flags, self::$defaultOptions);
         } elseif (self::$extension === self::EXTENSION_XHPROF && (self::$mode & self::MODE_PROFILING) > 0) {
@@ -381,7 +360,7 @@ class Profiler
         self::$startTime = false;
     }
 
-    private static function init($apiKey, $distributedId = null)
+    private static function init($apiKey, $distributedId = null, $distributedTracingHosts)
     {
         if (self::$shutdownRegistered == false) {
             register_shutdown_function(array("Tideways\\Profiler", "shutdown"));
@@ -410,7 +389,11 @@ class Profiler
             'tx' => 'default',
         );
 
-        if ($distributedId === null && self::$distributedTracing === true && isset($_SERVER['HTTP_X_TW_TRACEID']) && isset($_SERVER['HTTP_X_TW_SPANID'])) {
+        if ($distributedId === null &&
+            isset($_SERVER['HTTP_X_TW_TRACEID']) &&
+            isset($_SERVER['HTTP_X_TW_SPANID']) &&
+            self::allowAutoStartDistributedTracing($distributedTracingHosts)) {
+
             $distributedId = new DistributedId(
                 (int)$_SERVER['HTTP_X_TW_SPANID'],
                 (int)$_SERVER['HTTP_X_TW_TRACEID'],
@@ -423,6 +406,53 @@ class Profiler
             self::$trace['pid'] = $distributedId->parentTraceId;
             self::$trace['rid'] = $distributedId->rootTraceId;
         }
+    }
+
+    /**
+     * Check if the current requests ip-address indicates it comes
+     * from an allowed host to enable distributed tracing.
+     *
+     * @param string $allowedHosts
+     * @return bool
+     */
+    private static function allowAutoStartDistributedTracing($allowedHosts)
+    {
+        $trustedProxies = array();
+        $headerName = false;
+
+        if (!isset($_SERVER['REMOTE_ADDR'])) {
+            return false;
+        }
+
+        $checkIp = $_SERVER['REMOTE_ADDR'];
+
+        if (strpos($allowedHosts, ':') !== false) {
+            $parts = explode(':', $allowedHosts);
+
+            if (count($parts) !== 3) {
+                return false;
+            }
+
+            $headerName = "HTTP_" . strtoupper(str_replace("-", "_", $parts[0]));
+            $trustedProxies = explode(',', $parts[1]);
+            $allowedHosts = explode(',', $parts[2]);
+
+            if (isset($_SERVER[$headerName])) {
+                $proxies = explode(',', $_SERVER[$headerName]);
+                $proxies[] = $_SERVER['REMOTE_ADDR'];
+
+                foreach (array_reverse($proxies) as $proxyIp) {
+                    if (!in_array($proxyIp, $trustedProxies)) {
+                        $checkIp = $proxyIp;
+                        break;
+                    }
+                }
+            }
+        } else {
+            $allowedHosts = explode(',', $allowedHosts);
+        }
+
+        return in_array($checkIp, $allowedHosts);
     }
 
     /**

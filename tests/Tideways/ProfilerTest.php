@@ -15,6 +15,14 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         if (\Tideways\Profiler::isStarted()) {
             $this->fail('Profiler is already running');
         }
+        unset(
+            $_SERVER['HTTP_X_TIDEWAYS_PROFILER'],
+            $_SERVER['HTTP_X_TW_ROOTID'],
+            $_SERVER['HTTP_X_TW_SPANID'],
+            $_SERVER['HTTP_X_TW_TRACEID'],
+            $_SERVER['REMOTE_ADDR'],
+            $_SERVER['HTTP_X_FORWARDED_FOR']
+        );
     }
 
     public function testStartStopProfile()
