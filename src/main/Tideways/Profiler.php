@@ -535,7 +535,7 @@ class Profiler
      */
     public static function setCustomVariable($name, $value)
     {
-        if (self::$mode !== self::MODE_PROFILING || !is_scalar($value)) {
+        if ((self::$mode & self::MODE_FULL) === 0 || !is_scalar($value)) {
             return;
         }
 
