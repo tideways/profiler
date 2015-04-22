@@ -563,7 +563,7 @@ class Profiler
      */
     public static function currentDuration()
     {
-        return intval(round((microtime(true) - self::$startTime) * 1000));
+        return intval(round((microtime(true) - self::$startTime) * 1000000));
     }
 
     /**
@@ -587,9 +587,11 @@ class Profiler
         }
 
         $profilingData = array();
+        $spans = array();
 
         if (($mode & self::MODE_FULL) > 0) {
             if (self::$extension === self::EXTENSION_TIDEWAYS) {
+                $spans = tideways_get_spans();
                 $profilingData = tideways_disable();
             } elseif (self::$extension === self::EXTENSION_XHPROF) {
                 $profilingData = xhprof_disable();
@@ -629,13 +631,13 @@ class Profiler
         if (($mode & self::MODE_PROFILING) > 0) {
             self::$trace['profdata'] = $profilingData ?: array();
         } else if (($mode & self::MODE_TRACING) > 0) {
-            self::$trace['profdata'] = array('main()' => array('wt' => $duration * 1000, 'ct' => 1));
+            self::$trace['profdata'] = array('main()' => array('wt' => $duration, 'ct' => 1));
         }
 
         self::$currentRootSpan->recordDuration($duration);
         self::$startTime = false;
         self::$mode = self::MODE_NONE;
-        self::$trace['spans'] = \Tideways\Traces\PhpSpan::getSpans(); // hardoded as long only 1 impl exists.
+        self::$trace['spans'] = array_merge(\Tideways\Traces\PhpSpan::getSpans(), $spans); // hardoded as long only 1 impl exists.
 
         if (self::$error === true || ($mode & self::MODE_FULL) > 0) {
             self::$backend->socketStore(self::$trace);
