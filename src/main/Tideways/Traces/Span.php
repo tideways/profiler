@@ -21,6 +21,18 @@ namespace Tideways\Traces;
 abstract class Span
 {
     /**
+     * Create Child span
+     * @private
+     */
+    abstract public function createSpan($name = null);
+
+    /**
+     * @private
+     * @return array
+     */
+    abstract public function getSpans();
+
+    /**
      * 32/64 bit random integer.
      *
      * @return int
@@ -42,20 +54,9 @@ abstract class Span
     public abstract function stopTimer();
 
     /**
-     * @param int $duration
-     * @param int $start
-     */
-    public abstract function recordDuration($duration, $start = null);
-
-    /**
      * Annotate span with metadata.
      *
      * @param array<string,scalar>
      */
     public abstract function annotate(array $annotations);
-
-    /**
-     * @return array
-     */
-    public abstract function toArray();
 }

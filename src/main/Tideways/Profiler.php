@@ -98,7 +98,6 @@ class Profiler
     );
 
     private static $trace;
-    private static $startTime = false;
     private static $currentRootSpan;
     private static $shutdownRegistered = false;
     private static $error = false;
@@ -262,14 +261,33 @@ class Profiler
         self::$mode = self::decideProfiling($options['sample_rate'], $options);
 
         if (self::$extension === self::EXTENSION_TIDEWAYS) {
-            $flags = ((self::$mode & self::MODE_PROFILING) === self::MODE_PROFILING)
-                ? 0 : TIDEWAYS_FLAGS_NO_COMPILE | TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS;
+            switch (self::$mode) {
+                case self::MODE_FULL:
+                    $flags = 0;
+                    break;
+                case self::MODE_PROFILING:
+                    $flags = TIDEWAYS_FLAGS_NO_SPANS;
+                    break;
+                case self::MODE_TRACING:
+                    $flags = TIDEWAYS_FLAGS_NO_HIERACHICAL;
+                    break;
+                default:
+                    $flags = TIDEWAYS_FLAGS_NO_COMPILE | TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS;
+            }
 
+            self::$currentRootSpan = new \Tideways\Traces\TwExtensionSpan(0);
             tideways_enable($flags, self::$defaultOptions);
         } elseif (self::$extension === self::EXTENSION_XHPROF && (self::$mode & self::MODE_PROFILING) > 0) {
+            \Tideways\Traces\PhpSpan::clear();
+            self::$currentRootSpan = new \Tideways\Traces\PhpSpan(0, 'app');
+            self::$currentRootSpan->startTimer();
+
             xhprof_enable(0, self::$defaultOptions);
+        } else {
+            \Tideways\Traces\PhpSpan::clear();
+            self::$currentRootSpan = new \Tideways\Traces\PhpSpan(0, 'app');
+            self::$currentRootSpan->startTimer();
         }
-        self::$startTime = microtime(true);
     }
 
     /**
@@ -356,8 +374,6 @@ class Profiler
                 tideways_disable();
             }
         }
-
-        self::$startTime = false;
     }
 
     private static function init($apiKey, $distributedId = null, $distributedTracingHosts)
@@ -382,7 +398,6 @@ class Profiler
 
         self::$mode = self::MODE_BASIC;
         self::$error = false;
-        self::$currentRootSpan = self::createRootSpan();
         self::$trace = array(
             'apiKey' => $apiKey,
             'id' => self::generateRandomId(),
@@ -554,16 +569,8 @@ class Profiler
     public static function createSpan($name)
     {
         return (self::$mode & self::MODE_TRACING) > 0
-            ? \Tideways\Traces\PhpSpan::createSpan($name)
+            ? self::$currentRootSpan->createSpan($name)
             : new \Tideways\Traces\NullSpan();
-    }
-
-    /**
-     * @return int
-     */
-    public static function currentDuration()
-    {
-        return intval(round((microtime(true) - self::$startTime) * 1000000));
     }
 
     /**
@@ -576,7 +583,6 @@ class Profiler
         }
 
         $mode = self::$mode;
-        $duration = self::currentDuration();
 
         if (self::$trace['tx'] === 'default' && self::$extension === self::EXTENSION_TIDEWAYS) {
             self::$trace['tx'] = tideways_transaction_name() ?: 'default';
@@ -587,14 +593,13 @@ class Profiler
         }
 
         $profilingData = array();
-        $spans = array();
 
         if (($mode & self::MODE_FULL) > 0) {
             if (self::$extension === self::EXTENSION_TIDEWAYS) {
-                $spans = tideways_get_spans();
                 $profilingData = tideways_disable();
             } elseif (self::$extension === self::EXTENSION_XHPROF) {
                 $profilingData = xhprof_disable();
+                self::$currentRootSpan->stopTimer();
             }
 
             $annotations = array('mem' => ceil(memory_get_peak_usage() / 1024));
@@ -626,18 +631,16 @@ class Profiler
             }
 
             self::$currentRootSpan->annotate($annotations);
+        } else {
+            self::$currentRootSpan->stopTimer();
         }
 
         if (($mode & self::MODE_PROFILING) > 0) {
             self::$trace['profdata'] = $profilingData ?: array();
-        } else if (($mode & self::MODE_TRACING) > 0) {
-            self::$trace['profdata'] = array('main()' => array('wt' => $duration, 'ct' => 1));
         }
 
-        self::$currentRootSpan->recordDuration($duration);
-        self::$startTime = false;
         self::$mode = self::MODE_NONE;
-        self::$trace['spans'] = array_merge(\Tideways\Traces\PhpSpan::getSpans(), $spans); // hardoded as long only 1 impl exists.
+        self::$trace['spans'] = self::$currentRootSpan->getSpans();
 
         if (self::$error === true || ($mode & self::MODE_FULL) > 0) {
             self::$backend->socketStore(self::$trace);
@@ -649,9 +652,6 @@ class Profiler
 
     private static function createRootSpan()
     {
-        \Tideways\Traces\PhpSpan::clear();
-
-        $span = \Tideways\Traces\PhpSpan::createSpan('app');
 
         return $span;
     }

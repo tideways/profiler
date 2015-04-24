@@ -2,21 +2,35 @@
 
 namespace Tideways\Traces;
 
-class NullSpan extends Span
+class TwExtensionSpan extends Span
 {
+    /**
+     * @var int
+     */
+    private $idx;
+
     public function createSpan($name = null)
     {
-        return $this;
+        return new self(tideways_span_create($name));
     }
 
     public function getSpans()
     {
-        return array();
+        return tideways_get_spans();
     }
 
+    public function __construct($idx)
+    {
+        $this->idx = $idx;
+    }
+
+    /**
+     * 32/64 bit random integer.
+     *
+     * @return int
+     */
     public function getId()
     {
-        return 0;
     }
 
     /**
@@ -26,6 +40,7 @@ class NullSpan extends Span
      */
     public function startTimer()
     {
+        tideways_span_timer_start($this->idx);
     }
 
     /**
@@ -35,6 +50,7 @@ class NullSpan extends Span
      */
     public function stopTimer()
     {
+        tideways_span_timer_stop($this->idx);
     }
 
     /**
@@ -44,5 +60,6 @@ class NullSpan extends Span
      */
     public function annotate(array $annotations)
     {
+        tideways_span_annotate($this->idx, $annotations);
     }
 }

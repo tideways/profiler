@@ -9,6 +9,7 @@
                     <file name="main/Tideways/Traces/Span.php" />
                     <file name="main/Tideways/Traces/NullSpan.php" />
                     <file name="main/Tideways/Traces/PhpSpan.php" />
+                    <file name="main/Tideways/Traces/TwExtensionSpan.php" />
                     <file name="main/Tideways/Traces/DistributedId.php" />
                     <file name="main/Tideways/Profiler/Backend.php" />
                     <file name="main/Tideways/Profiler/NetworkBackend.php" />

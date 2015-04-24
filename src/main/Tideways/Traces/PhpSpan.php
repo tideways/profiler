@@ -31,6 +31,7 @@ class PhpSpan extends Span
      * @var array
      */
     private static $spans = array();
+    private static $startTime = false;
 
     /**
      * @var bool
@@ -42,18 +43,27 @@ class PhpSpan extends Span
      */
     private $idx;
 
-    static public function createSpan($name = null)
+    static public function clear()
+    {
+        self::$spans = array();
+        self::$startTime = microtime(true);
+    }
+
+    public function createSpan($name = null)
     {
         $idx = count(self::$spans);
         return new self($idx, $name);
     }
 
-    static public function clear()
+    /**
+     * @return int
+     */
+    private static function currentDuration()
     {
-        self::$spans = array();
+        return intval(round((microtime(true) - self::$startTime) * 1000000));
     }
 
-    static public function getSpans()
+    public function getSpans()
     {
         return self::$spans;
     }
@@ -86,7 +96,7 @@ class PhpSpan extends Span
             return;
         }
 
-        self::$spans[$this->idx][self::STARTS][] = Profiler::currentDuration();
+        self::$spans[$this->idx][self::STARTS][] = self::currentDuration();
         $this->timerRunning = true;
     }
 
@@ -96,7 +106,7 @@ class PhpSpan extends Span
             return;
         }
 
-        self::$spans[$this->idx][self::STOPS][] = Profiler::currentDuration();
+        self::$spans[$this->idx][self::STOPS][] = self::currentDuration();
         $this->timerRunning = false;
     }
 
@@ -109,20 +119,5 @@ class PhpSpan extends Span
 
             self::$spans[$this->idx][self::ANNOTATIONS][$name] = (string)$value;
         }
-    }
-
-    public function recordDuration($duration, $start = 0)
-    {
-        if ($this->timerRunning) {
-            return;
-        }
-
-        self::$spans[$this->idx][self::STARTS][] = (int)$start;
-        self::$spans[$this->idx][self::STOPS][] = (int)($start + $duration);
-    }
-
-    public function toArray()
-    {
-        return self::$spans[$this->idx];
     }
 }
