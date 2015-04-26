@@ -640,11 +640,14 @@ class Profiler
         }
 
         self::$mode = self::MODE_NONE;
-        self::$trace['spans'] = self::$currentRootSpan->getSpans();
+
+        $spans = self::$currentRootSpan->getSpans();
 
         if (self::$error === true || ($mode & self::MODE_FULL) > 0) {
+            self::$trace['spans'] = $spans;
             self::$backend->socketStore(self::$trace);
         } else {
+            self::$trace['spans'] = isset($spans[0]) ? array($spans[0]) : array(); // prevent flooding udp by accident
             self::$backend->udpStore(self::$trace);
         }
         self::$trace = null; // free memory
