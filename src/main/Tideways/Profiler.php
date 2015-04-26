@@ -346,8 +346,8 @@ class Profiler
     private static function convertMode($mode)
     {
         if (is_string($mode)) {
-            $mode = defined('\Tideways\Profiler::MODE_' . strtoupper($preferredMode))
-                ? constant('\Tideways\Profiler::MODE_' . strtoupper($preferredMode))
+            $mode = defined('\Tideways\Profiler::MODE_' . strtoupper($mode))
+                ? constant('\Tideways\Profiler::MODE_' . strtoupper($mode))
                 : self::MODE_NONE;
         } else if (!is_int($mode)) {
             $mode = self::MODE_NONE;
