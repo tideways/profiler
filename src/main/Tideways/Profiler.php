@@ -64,6 +64,7 @@ class Profiler
     const FRAMEWORK_OXID               = 'oxid';
     const FRAMEWORK_SHOPWARE           = 'shopware';
     const FRAMEWORK_WORDPRESS          = 'wordpress';
+    const FRAMEWORK_LARAVEL            = 'laravel';
 
     /**
      * Default XHProf/Tideways hierachical profiling options.
@@ -164,6 +165,10 @@ class Profiler
 
             case self::FRAMEWORK_WORDPRESS:
                 self::$defaultOptions['transaction_function'] = 'get_query_template';
+                break;
+
+            case self::FRAMEWORK_LARAVEL:
+                self::$defaultOptions['transaction_function'] = 'Illuminate\Routing\Controller::callAction';
                 break;
 
             default:
