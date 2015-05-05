@@ -35,12 +35,12 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         \Tideways\Profiler::start('foo', $alwaysSample);
         \Tideways\Profiler::setTransactionName(__CLASS__ . '::' . __METHOD__);
 
-        $this->assertTrue(\Tideways\Profiler::isProfiling());
+        $this->assertTrue(\Tideways\Profiler::isTracing());
         $this->assertTrue(\Tideways\Profiler::isStarted());
 
         \Tideways\Profiler::stop();
 
-        $this->assertFalse(\Tideways\Profiler::isProfiling());
+        $this->assertFalse(\Tideways\Profiler::isTracing());
         $this->assertFalse(\Tideways\Profiler::isStarted());
     }
 
