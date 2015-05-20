@@ -803,6 +803,23 @@ class Profiler
     }
 
     /**
+     * check if the $file exists on the include_path
+     *
+     * @param string $file
+     * @return bool
+     */
+    private static function is_file_on_the_path($file) {
+        $paths = explode(PATH_SEPARATOR, ini_get('include_path'));
+        foreach ($paths as $path) {
+          $f = realpath($path).DIRECTORY_SEPARATOR. $file;
+          if (file_exists($f)) {
+            return true;
+          }
+        }
+        return false;
+    }
+
+    /**
      * @return bool
      */
     private static function requiresDelegateToOriginalPrependFile()
@@ -810,6 +827,6 @@ class Profiler
         return ini_get('tideways.auto_prepend_library') &&
                tideways_prepend_overwritten() &&
                ini_get("auto_prepend_file") != "" &&
-               file_exists(ini_get("auto_prepend_file"));
+               self::is_file_on_the_path(ini_get("auto_prepend_file"));
     }
 }
