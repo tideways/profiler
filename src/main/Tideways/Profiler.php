@@ -795,7 +795,7 @@ class Profiler
     {
         return ini_get('tideways.auto_prepend_library') &&
                tideways_prepend_overwritten() &&
-               ini_get("auto_prepend_file") != "" &&
-               file_exists(ini_get("auto_prepend_file"));
+               ini_get("auto_prepend_file") &&
+               file_exists(stream_resolve_include_path(ini_get("auto_prepend_file")));
     }
 }
