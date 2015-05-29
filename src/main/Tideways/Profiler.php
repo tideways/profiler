@@ -634,11 +634,12 @@ class Profiler
             } elseif (php_sapi_name() === "cli") {
                 $annotations['title'] = basename($_SERVER['argv'][0]);
             }
-
-            self::$currentRootSpan->annotate($annotations);
         } else {
             self::$currentRootSpan->stopTimer();
+            $annotations = array('mem' => ceil(memory_get_peak_usage() / 1024));
         }
+
+        self::$currentRootSpan->annotate($annotations);
 
         if (($mode & self::MODE_PROFILING) > 0) {
             self::$trace['profdata'] = $profilingData ?: array();
