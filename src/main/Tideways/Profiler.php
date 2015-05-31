@@ -563,6 +563,40 @@ class Profiler
     }
 
     /**
+     * Watch a function for calls and create timeline spans around it.
+     *
+     * @param string $function
+     * @param string $category
+     */
+    public static function watch($function, $category = null)
+    {
+        if (self::$extension === self::EXTENSION_TIDEWAYS) {
+            tideways_span_watch($function, $category);
+        }
+    }
+
+    /**
+     * Watch a function and invoke a callback when its called.
+     *
+     * To start a span, call {@link \Tideways\Profiler::createSpan($category)}
+     * inside the callback and return {$span->getId()}:
+     *
+     * @example
+     *
+     * \Tideways\Profiler::watchCallback('mysql_query', function ($context) {
+     *     $span = \Tideways\Profiler::createSpan('sql');
+     *     $span->annotate(array('title' => $context['args'][0]));
+     *     return $span->getId();
+     * });
+     */
+    public static function watchCallback($function, $callback)
+    {
+        if (self::$extension === self::EXTENSION_TIDEWAYS) {
+            tideways_span_callback($function, $callback);
+        }
+    }
+
+    /**
      * Create a new trace span with the given category name.
      *
      * @example
