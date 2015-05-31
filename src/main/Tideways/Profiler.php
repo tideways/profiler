@@ -139,6 +139,7 @@ class Profiler
         switch ($framework) {
             case self::FRAMEWORK_ZEND_FRAMEWORK1:
                 self::$defaultOptions['transaction_function'] = 'Zend_Controller_Action::dispatch';
+                self::$defaultOptions['exception_function'] = 'Zend_Controller_Response_Abstract::setException';
                 break;
 
             case self::FRAMEWORK_ZEND_FRAMEWORK2:
@@ -157,10 +158,12 @@ class Profiler
 
             case self::FRAMEWORK_OXID:
                 self::$defaultOptions['transaction_function'] = 'oxView::setClassName';
+                self::$defaultOptions['exception_function'] = 'oxShopControl::_handleBaseException';
                 break;
 
             case self::FRAMEWORK_SHOPWARE:
                 self::$defaultOptions['transaction_function'] = 'Enlight_Controller_Action::dispatch';
+                self::$defaultOptions['exception_function'] = 'Zend_Controller_Response_Abstract::setException';
                 break;
 
             case self::FRAMEWORK_WORDPRESS:
@@ -169,6 +172,7 @@ class Profiler
 
             case self::FRAMEWORK_LARAVEL:
                 self::$defaultOptions['transaction_function'] = 'Illuminate\Routing\Controller::callAction';
+                self::$defaultOptions['exception_function'] = 'Illuminate\Foundation\Http\Kernel::reportException';
                 break;
 
             default:
