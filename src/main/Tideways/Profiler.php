@@ -633,6 +633,8 @@ class Profiler
 
         if (function_exists('tideways_last_detected_exception') && $exception = tideways_last_detected_exception()) {
             self::logException($exception);
+        } elseif (function_exists("http_response_code") && http_response_code() >= 500) {
+            self::logFatal("PHP request set error HTTP response code to '" . http_response_code() . "'.", "", 0, E_USER_ERROR);
         }
 
         $profilingData = array();
@@ -790,8 +792,6 @@ class Profiler
             $lastError['trace'] = function_exists('tideways_fatal_backtrace') ? tideways_fatal_backtrace() : null;
 
             self::logFatal($lastError['message'], $lastError['file'], $lastError['line'], $lastError['type'], $lastError['trace']);
-        } elseif (function_exists("http_response_code") && http_response_code() >= 500) {
-            self::logFatal("PHP request set error HTTP response code to '" . http_response_code() . "'.", "", 0, E_USER_ERROR);
         }
 
         self::stop();
