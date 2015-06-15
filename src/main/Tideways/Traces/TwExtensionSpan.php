@@ -31,6 +31,7 @@ class TwExtensionSpan extends Span
      */
     public function getId()
     {
+        return $this->idx;
     }
 
     /**
