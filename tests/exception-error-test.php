@@ -6,10 +6,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 \Tideways\Profiler::start("foo", 100);
 
 register_shutdown_function(function () {
-    $reflClass = new \ReflectionClass('Tideways\Profiler');
-    $property = $reflClass->getProperty('error');
-    $property->setAccessible(true);
-    var_dump($property->getValue());
+    var_dump(\Tideways\Traces\PhpSpan::getSpans()[0]);
 });
 
 function foo(\Exception $e) {}

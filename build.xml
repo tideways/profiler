@@ -6,9 +6,13 @@
             </header>
             <path>
                 <filelist dir="src">
+                    <file name="main/Tideways/Traces/Span.php" />
+                    <file name="main/Tideways/Traces/NullSpan.php" />
+                    <file name="main/Tideways/Traces/PhpSpan.php" />
+                    <file name="main/Tideways/Traces/TwExtensionSpan.php" />
+                    <file name="main/Tideways/Traces/DistributedId.php" />
                     <file name="main/Tideways/Profiler/Backend.php" />
                     <file name="main/Tideways/Profiler/NetworkBackend.php" />
-                    <file name="main/Tideways/Profiler/SqlAnonymizer.php" />
                     <file name="main/Tideways/Profiler/BacktraceConverter.php" />
                     <file name="main/Tideways/Profiler.php" />
                     <file name="main/QafooLabs/Profiler.php" />
@@ -19,8 +23,37 @@
                 <linecontains negate="true">
                     <contains value="&lt;?php" />
                 </linecontains>
+                <!-- Strip comments during concat if desired -->
+                <!--
+                <linecontainsregexp negate="true">
+                    <regexp pattern="^\/\*\*" />
+                </linecontainsregexp>
+                <linecontainsregexp negate="true">
+                    <regexp pattern="^ \*\/$" />
+                </linecontainsregexp>
+                <linecontainsregexp negate="true">
+                    <regexp pattern="^ \*" />
+                </linecontainsregexp>
+                <linecontainsregexp negate="true">
+                    <regexp pattern="^    \/\*\*" />
+                </linecontainsregexp>
+                <linecontainsregexp negate="true">
+                    <regexp pattern="^     \*\/$" />
+                </linecontainsregexp>
+                <linecontainsregexp negate="true">
+                    <regexp pattern="^     \*" />
+                </linecontainsregexp>
+                -->
             </filterchain>
         </concat>
+    </target>
+
+    <target name="test">
+        <exec executable="php" failonerror="true">
+            <arg value="-d" />
+            <arg value="tideways.auto_prepend_library=0" />
+            <arg value="/usr/local/bin/phpunit" />
+        </exec>
     </target>
 
     <target name="install" depends="compile">

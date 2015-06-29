@@ -18,7 +18,6 @@ namespace Tideways\Profiler;
  */
 interface Backend
 {
-    public function storeProfile(array $data);
-    public function storeMeasurement(array $data);
-    public function storeError(array $data);
+    public function socketStore(array $trace);
+    public function udpStore(array $trace);
 }
