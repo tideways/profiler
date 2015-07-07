@@ -295,6 +295,39 @@ class Profiler
         }
     }
 
+    public static function queryTransactionOptions($apiKey, $transactionName)
+    {
+        $socket = stream_socket_client(self::getSocketFile(), $errno, $errstr, 0.001);
+        if ($socket === false) {
+            return array();
+        }
+
+        stream_set_timeout($socket, 0, 1000); // 1 milisecond
+        fwrite(
+            $socket,
+            json_encode(
+                array('type' => 'config', 'payload' => array('apiKey' => $apiKey, 'tx'))
+            )
+        );
+        $responseData = fread($fp, 4096);
+        fclose($socket);
+
+        $config = json_decode($responseData, true);
+        if ($config === false || !isset($config['s'])) {
+            return array();
+        }
+
+        $collectMode = self::MODE_TRACING;
+        if ($config['m'] == 'profiling') {
+            $collectMode = self::MODE_PROFILING;
+        }
+        if ($config['m'] == 'both') {
+            $collectMode = self::MODE_FULL;
+        }
+
+        return array('sample_rate' => $config['s'], 'collect' => $collectMode, 'api_key' => $apiKey);
+    }
+
     /**
      * Decide in which mode to start collecting data.
      *
@@ -390,7 +423,7 @@ class Profiler
 
         if (self::$backend === null) {
             self::$backend = new Profiler\NetworkBackend(
-                ini_get('tideways.connection') ?: 'unix:///var/run/tideways/tidewaysd.sock',
+                self::getSocketFile(),
                 ini_get('tideways.udp_connection') ?: '127.0.0.1:8135'
             );
         }
@@ -426,6 +459,14 @@ class Profiler
             self::$trace['pid'] = $distributedId->parentTraceId;
             self::$trace['rid'] = $distributedId->rootTraceId;
         }
+    }
+
+    /**
+     * @return string
+     */
+    private function getSocketFile()
+    {
+        return ini_get('tideways.connection') ?: 'unix:///var/run/tideways/tidewaysd.sock';
     }
 
     /**
