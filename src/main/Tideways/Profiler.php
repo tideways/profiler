@@ -41,7 +41,7 @@ use Tideways\Traces\DistributedId;
  */
 class Profiler
 {
-    const VERSION = '2.0.0';
+    const VERSION = '2.0.3';
 
     const MODE_NONE = 0;
     const MODE_BASIC = 1;
@@ -139,6 +139,7 @@ class Profiler
         switch ($framework) {
             case self::FRAMEWORK_ZEND_FRAMEWORK1:
                 self::$defaultOptions['transaction_function'] = 'Zend_Controller_Action::dispatch';
+                self::$defaultOptions['exception_function'] = 'Zend_Controller_Response_Abstract::setException';
                 break;
 
             case self::FRAMEWORK_ZEND_FRAMEWORK2:
@@ -157,10 +158,12 @@ class Profiler
 
             case self::FRAMEWORK_OXID:
                 self::$defaultOptions['transaction_function'] = 'oxView::setClassName';
+                self::$defaultOptions['exception_function'] = 'oxShopControl::_handleBaseException';
                 break;
 
             case self::FRAMEWORK_SHOPWARE:
                 self::$defaultOptions['transaction_function'] = 'Enlight_Controller_Action::dispatch';
+                self::$defaultOptions['exception_function'] = 'Zend_Controller_Response_Abstract::setException';
                 break;
 
             case self::FRAMEWORK_WORDPRESS:
@@ -169,6 +172,7 @@ class Profiler
 
             case self::FRAMEWORK_LARAVEL:
                 self::$defaultOptions['transaction_function'] = 'Illuminate\Routing\Controller::callAction';
+                self::$defaultOptions['exception_function'] = 'Illuminate\Foundation\Http\Kernel::reportException';
                 break;
 
             default:
@@ -604,6 +608,40 @@ class Profiler
     }
 
     /**
+     * Watch a function for calls and create timeline spans around it.
+     *
+     * @param string $function
+     * @param string $category
+     */
+    public static function watch($function, $category = null)
+    {
+        if (self::$extension === self::EXTENSION_TIDEWAYS) {
+            tideways_span_watch($function, $category);
+        }
+    }
+
+    /**
+     * Watch a function and invoke a callback when its called.
+     *
+     * To start a span, call {@link \Tideways\Profiler::createSpan($category)}
+     * inside the callback and return {$span->getId()}:
+     *
+     * @example
+     *
+     * \Tideways\Profiler::watchCallback('mysql_query', function ($context) {
+     *     $span = \Tideways\Profiler::createSpan('sql');
+     *     $span->annotate(array('title' => $context['args'][0]));
+     *     return $span->getId();
+     * });
+     */
+    public static function watchCallback($function, $callback)
+    {
+        if (self::$extension === self::EXTENSION_TIDEWAYS) {
+            tideways_span_callback($function, $callback);
+        }
+    }
+
+    /**
      * Create a new trace span with the given category name.
      *
      * @example
@@ -636,6 +674,8 @@ class Profiler
 
         if (function_exists('tideways_last_detected_exception') && $exception = tideways_last_detected_exception()) {
             self::logException($exception);
+        } elseif (function_exists("http_response_code") && http_response_code() >= 500) {
+            self::logFatal("PHP request set error HTTP response code to '" . http_response_code() . "'.", "", 0, E_USER_ERROR);
         }
 
         $profilingData = array();
@@ -675,11 +715,12 @@ class Profiler
             } elseif (php_sapi_name() === "cli") {
                 $annotations['title'] = basename($_SERVER['argv'][0]);
             }
-
-            self::$currentRootSpan->annotate($annotations);
         } else {
             self::$currentRootSpan->stopTimer();
+            $annotations = array('mem' => ceil(memory_get_peak_usage() / 1024));
         }
+
+        self::$currentRootSpan->annotate($annotations);
 
         if (($mode & self::MODE_PROFILING) > 0) {
             self::$trace['profdata'] = $profilingData ?: array();
@@ -792,8 +833,6 @@ class Profiler
             $lastError['trace'] = function_exists('tideways_fatal_backtrace') ? tideways_fatal_backtrace() : null;
 
             self::logFatal($lastError['message'], $lastError['file'], $lastError['line'], $lastError['type'], $lastError['trace']);
-        } elseif (function_exists("http_response_code") && http_response_code() >= 500) {
-            self::logFatal("PHP request set error HTTP response code to '" . http_response_code() . "'.", "", 0, E_USER_ERROR);
         }
 
         self::stop();
