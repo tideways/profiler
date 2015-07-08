@@ -65,6 +65,7 @@ class Profiler
     const FRAMEWORK_SHOPWARE           = 'shopware';
     const FRAMEWORK_WORDPRESS          = 'wordpress';
     const FRAMEWORK_LARAVEL            = 'laravel';
+    const FRAMEWORK_MAGENTO            = 'magento';
 
     /**
      * Default XHProf/Tideways hierachical profiling options.
@@ -81,21 +82,9 @@ class Profiler
             'Symfony\Component\DependencyInjection\Container::get',
         ),
         'transaction_function' => null,
-        'argument_functions' => array(
-            'PDOStatement::execute',
-            'PDO::exec',
-            'PDO::query',
-            'mysql_query',
-            'mysqli_query',
-            'mysqli::query',
-            'pg_query',
-            'pg_query_params',
-            'pg_execute',
-            'curl_exec',
-            'Twig_Template::render',
-            'Smarty::fetch',
-            'Smarty_Internal_TemplateBase::fetch',
-        ),
+        'exception_function' => null,
+        'watches' => array(),
+        'callbacks' => array(),
     );
 
     private static $trace;
@@ -175,6 +164,11 @@ class Profiler
                 self::$defaultOptions['exception_function'] = 'Illuminate\Foundation\Http\Kernel::reportException';
                 break;
 
+            case self::FRAMEWORK_MAGENTO:
+                self::$defaultOptions['transaction_function'] = 'Mage_Core_Controller_Varien_Action::dispatch';
+                self::$defaultOptions['exception_function'] = 'Mage::printException';
+                break;
+
             default:
                 self::$defaultOptions['transaction_function'] = $framework;
                 break;
@@ -252,7 +246,7 @@ class Profiler
             $options['sample_rate'] = $sampleRate;
         }
 
-        $defaultOptions = array(
+        $defaults = array(
             'api_key' => isset($_SERVER['TIDEWAYS_APIKEY']) ? $_SERVER['TIDEWAYS_APIKEY'] : ini_get("tideways.api_key"),
             'sample_rate' => isset($_SERVER['TIDEWAYS_SAMPLERATE']) ? intval($_SERVER['TIDEWAYS_SAMPLERATE']) : ini_get("tideways.sample_rate"),
             'collect' => isset($_SERVER['TIDEWAYS_COLLECT']) ? $_SERVER['TIDEWAYS_COLLECT'] : (ini_get("tideways.collect") ?: self::MODE_TRACING),
@@ -260,7 +254,7 @@ class Profiler
             'distributed_tracing_hosts' => isset($_SERVER['TIDEWAYS_ALLOWED_HOSTS']) ? $_SERVER['TIDEWAYS_ALLOWED_HOSTS'] : (ini_get("tideways.distributed_tracing_hosts") ?: '127.0.0.1'),
             'distributed_trace' => null,
         );
-        $options = array_merge($defaultOptions, $options);
+        $options = array_merge($defaults, $options);
 
         if (strlen((string)$options['api_key']) === 0) {
             return;
@@ -274,18 +268,31 @@ class Profiler
                 case self::MODE_FULL:
                     $flags = 0;
                     break;
+
                 case self::MODE_PROFILING:
                     $flags = TIDEWAYS_FLAGS_NO_SPANS;
                     break;
+
                 case self::MODE_TRACING:
                     $flags = TIDEWAYS_FLAGS_NO_HIERACHICAL;
                     break;
+
                 default:
                     $flags = TIDEWAYS_FLAGS_NO_COMPILE | TIDEWAYS_FLAGS_NO_USERLAND | TIDEWAYS_FLAGS_NO_BUILTINS;
+                    break;
             }
 
             self::$currentRootSpan = new \Tideways\Traces\TwExtensionSpan(0);
             tideways_enable($flags, self::$defaultOptions);
+
+            if (($flags & TIDEWAYS_FLAGS_NO_SPANS) === 0) {
+                foreach (self::$defaultOptions['watches'] as $watch) {
+                    tideways_span_watch($watch);
+                }
+                foreach (self::$defaultOptions['callbacks'] as $function => $callback) {
+                    tideways_span_callback($function, $callback);
+                }
+            }
         } elseif (self::$extension === self::EXTENSION_XHPROF && (self::$mode & self::MODE_PROFILING) > 0) {
             \Tideways\Traces\PhpSpan::clear();
             self::$currentRootSpan = new \Tideways\Traces\PhpSpan(0, 'app');
