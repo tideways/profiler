@@ -310,10 +310,10 @@ class Profiler
         fwrite(
             $socket,
             json_encode(
-                array('type' => 'config', 'payload' => array('apiKey' => $apiKey, 'tx'))
+                array('type' => 'config', 'payload' => array('apiKey' => $apiKey, 'tx' => $transactionName))
             )
         );
-        $responseData = fread($fp, 4096);
+        $responseData = fread($socket, 4096);
         fclose($socket);
 
         $config = json_decode($responseData, true);
