@@ -286,8 +286,8 @@ class Profiler
             tideways_enable($flags, self::$defaultOptions);
 
             if (($flags & TIDEWAYS_FLAGS_NO_SPANS) === 0) {
-                foreach (self::$defaultOptions['watches'] as $watch) {
-                    tideways_span_watch($watch);
+                foreach (self::$defaultOptions['watches'] as $watch => $category) {
+                    tideways_span_watch($watch, $category);
                 }
                 foreach (self::$defaultOptions['callbacks'] as $function => $callback) {
                     tideways_span_callback($function, $callback);
@@ -582,7 +582,11 @@ class Profiler
     public static function watch($function, $category = null)
     {
         if (self::$extension === self::EXTENSION_TIDEWAYS) {
-            tideways_span_watch($function, $category);
+            self::$defaultOptions['watches'][$function] = $category;
+
+            if ((self::$mode & self::MODE_TRACING) > 0) {
+                tideways_span_watch($function, $category);
+            }
         }
     }
 
@@ -603,7 +607,11 @@ class Profiler
     public static function watchCallback($function, $callback)
     {
         if (self::$extension === self::EXTENSION_TIDEWAYS) {
-            tideways_span_callback($function, $callback);
+            self::$defaultOptions['callbacks'][$function] = $callback;
+
+            if ((self::$mode & self::MODE_TRACING) > 0) {
+                tideways_span_callback($function, $callback);
+            }
         }
     }
 

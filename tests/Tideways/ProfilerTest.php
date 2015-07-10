@@ -11,6 +11,7 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         }
         \Tideways\Profiler::stop();
         \Tideways\Profiler::setBackend(null);
+        tideways_disable();
 
         if (\Tideways\Profiler::isStarted()) {
             $this->fail('Profiler is already running');
@@ -229,5 +230,43 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         $this->assertFalse(\Tideways\Profiler::isProfiling());
 
         \Tideways\Profiler::stop();
+    }
+
+    public function testWatchCallbackConfiguration()
+    {
+        if (!extension_loaded('tideways')) {
+            $this->markTestSkipped('Requires "tideways" extension.');
+        }
+
+        $this->assertFalse(\Tideways\Profiler::isStarted());
+        $this->assertFalse(\Tideways\Profiler::isTracing());
+
+        $callback = function ($context) {
+            $span = \Tideways\Profiler::createSpan('foo');
+            $span->annotate(array('title' => $context['fn']));
+            return $span->getId();
+        };
+
+        \Tideways\Profiler::watch('array_merge');
+        \Tideways\Profiler::watchCallback('implode', $callback);
+
+        \Tideways\Profiler::start(array('api_key' => 'foo', 'sample_rate' => 100));
+        $this->assertTrue(\Tideways\Profiler::isTracing());
+        $this->assertTrue(\Tideways\Profiler::isStarted());
+
+        \Tideways\Profiler::watch('array_flip');
+        \Tideways\Profiler::watchCallback('explode', $callback);
+
+        $result = implode(';', array_merge(array_flip(array('foo' => 0)), explode(',', 'bar,baz')));
+
+        $this->assertEquals('foo;bar;baz', $result);
+
+        \Tideways\Profiler::stop();
+
+        $spans = implode(";", array_map(function ($span) {
+            return '[' . $span['n'] . ']' . $span['a']['title'];
+        }, tideways_get_spans()));
+
+        $this->assertEquals('[app]phpunit;[php]array_flip;[foo]explode;[php]array_merge;[foo]implode', $spans);
     }
 }
