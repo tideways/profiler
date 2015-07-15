@@ -570,6 +570,10 @@ class Profiler
             return;
         }
 
+        if (!self::$currentRootSpan) {
+            return;
+        }
+
         self::$currentRootSpan->annotate(array($name => $value));
     }
 
@@ -754,7 +758,7 @@ class Profiler
 
     public static function logFatal($message, $file, $line, $type = null, $trace = null)
     {
-        if (self::$error === true) {
+        if (self::$error === true || !self::$currentRootSpan) {
             return;
         }
 
@@ -777,7 +781,7 @@ class Profiler
 
     public static function logException(\Exception $exception)
     {
-        if (self::$error === true) {
+        if (self::$error === true || !self::$currentRootSpan) {
             return;
         }
 

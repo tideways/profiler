@@ -269,4 +269,17 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
 
         $this->assertEquals('[app]phpunit;[php]array_flip;[foo]explode;[php]array_merge;[foo]implode', $spans);
     }
+
+    public function testLogFatalAndExceptionWhenNotProfling()
+    {
+        \Tideways\Profiler::stop();
+
+        $reflClass = new \ReflectionClass('Tideways\Profiler');
+        $property = $reflClass->getProperty('currentRootSpan');
+        $property->setAccessible(true);
+        $property->setValue(null);
+
+        \Tideways\Profiler::logFatal('', '', 0);
+        \Tideways\Profiler::logException(new \Exception());
+    }
 }
