@@ -41,7 +41,7 @@ use Tideways\Traces\DistributedId;
  */
 class Profiler
 {
-    const VERSION = '2.0.4';
+    const VERSION = '2.0.5';
 
     const MODE_NONE = 0;
     const MODE_BASIC = 1;
