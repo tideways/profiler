@@ -282,4 +282,22 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         \Tideways\Profiler::logFatal('', '', 0);
         \Tideways\Profiler::logException(new \Exception());
     }
+
+    public function testLogMetadataForTrace()
+    {
+        $alwaysProfile = 100;
+
+        $backend = self::createBackend();
+        $backend->expects($this->once())->method('socketStore')->will($this->returnCallback(function($trace) {
+            $annotations = $trace['spans'][0]['a'];
+
+            $this->assertEquals(phpversion(), $annotations['php']);
+            $this->assertEquals(extension_loaded('xdebug'), isset($annotations['xdebug']));
+            $this->assertArrayHasKey('xhpv', $annotations);
+            $this->assertArrayHasKey('title', $annotations);
+        }));
+
+        \Tideways\Profiler::start('foo', $alwaysProfile);
+        \Tideways\Profiler::stop();
+    }
 }

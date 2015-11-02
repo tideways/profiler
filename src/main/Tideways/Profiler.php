@@ -677,6 +677,7 @@ class Profiler
             if (extension_loaded('xdebug')) {
                 $annotations['xdebug'] = '1';
             }
+            $annotations['php'] = PHP_VERSION;
 
             if (isset($_SERVER['REQUEST_URI'])) {
                 $annotations['title'] = '';
