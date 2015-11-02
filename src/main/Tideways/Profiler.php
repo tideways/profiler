@@ -261,7 +261,7 @@ class Profiler
         self::init($options['api_key'], $options['distributed_trace'], $options['distributed_tracing_hosts']);
         self::$mode = self::decideProfiling($options['sample_rate'], $options);
 
-        if (self::$extension === self::EXTENSION_TIDEWAYS) {
+        if (self::$extension === self::EXTENSION_TIDEWAYS && (self::$mode !== self::MODE_NONE)) {
             switch (self::$mode) {
                 case self::MODE_FULL:
                     $flags = 0;

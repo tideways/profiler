@@ -300,4 +300,10 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         \Tideways\Profiler::start('foo', $alwaysProfile);
         \Tideways\Profiler::stop();
     }
+
+    public function testMonitorNone()
+    {
+        \Tideways\Profiler::start(['api_key' => 'foo', 'monitor' => 'NONE', 'sample_rate' => 0]);
+        $this->assertFalse(\Tideways\Profiler::isStarted());
+    }
 }
