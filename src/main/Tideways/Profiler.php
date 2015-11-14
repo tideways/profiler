@@ -259,7 +259,18 @@ class Profiler
         }
 
         self::init($options['api_key'], $options['distributed_trace'], $options['distributed_tracing_hosts']);
-        self::$mode = self::decideProfiling($options['sample_rate'], $options);
+        self::decideProfiling($options['sample_rate'], $options);
+    }
+
+    /**
+     * Enable the profiler in the given $mode.
+     *
+     * @param string $mode
+     * @return void
+     */
+    private static function enableProfiler($mode)
+    {
+        self::$mode = $mode;
 
         if (self::$extension === self::EXTENSION_TIDEWAYS && (self::$mode !== self::MODE_NONE)) {
             switch (self::$mode) {
@@ -315,7 +326,8 @@ class Profiler
     {
         if (isset(self::$trace['pid']) && isset(self::$trace['sid']) && self::$trace['sid'] > 0) {
             self::$trace['keep'] = true; // always keep
-            return self::MODE_TRACING;
+            self::enableProfiler(self::MODE_TRACING);
+            return;
         }
 
         $vars = array();
@@ -340,7 +352,9 @@ class Profiler
             if ($vars['time'] > time() && hash_hmac('sha256', $message, md5(self::$trace['apiKey'])) === $vars['hash']) {
                 self::$trace['keep'] = true; // always keep
 
-                return self::MODE_FULL;
+                self::enableProfiler(self::MODE_FULL);
+                self::setCustomVariable('user', $vars['user']);
+                return;
             }
         }
 
@@ -348,8 +362,9 @@ class Profiler
         $monitorMode = self::convertMode($options['monitor']) & self::MODE_BASIC;
 
         $rand = rand(1, 100);
+        $mode = ($rand <= $treshold) ? $collectMode : $monitorMode;
 
-        return ($rand <= $treshold) ? $collectMode : $monitorMode;
+        self::enableProfiler($mode);
     }
 
     /**
