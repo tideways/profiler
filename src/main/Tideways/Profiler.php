@@ -793,9 +793,13 @@ class Profiler
         ));
     }
 
-    public static function logException(\Exception $exception)
+    public static function logException($exception)
     {
-        if (self::$error === true || !self::$currentRootSpan) {
+        if (is_string($exception)) {
+            $exception = new \RuntimeException($exception);
+        }
+
+        if (self::$error === true || !self::$currentRootSpan || !($exception instanceof \Exception)) {
             return;
         }
 

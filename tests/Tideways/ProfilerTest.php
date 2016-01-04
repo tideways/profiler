@@ -161,6 +161,23 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         \Tideways\Profiler::stop();
     }
 
+    public function testLogExceptionString()
+    {
+        $neverProfile = 0;
+
+        $backend = self::createBackend();
+        $backend->expects($this->once())->method('socketStore')->will($this->returnCallback(function($trace) {
+            $annotations = $trace['spans'][0]['a'];
+            $this->assertEquals('Error', $annotations['err_msg']);
+            $this->assertContains('Profiler.php', $annotations['err_source']);
+            $this->assertEquals('RuntimeException', $annotations['err_exception']);
+        }));
+
+        \Tideways\Profiler::start('foo', $neverProfile);
+        \Tideways\Profiler::logException("Error");
+        \Tideways\Profiler::stop();
+    }
+
     private function createBackend()
     {
         $backend = $this->getMock('Tideways\Profiler\Backend');
