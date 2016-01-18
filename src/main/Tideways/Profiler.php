@@ -246,8 +246,8 @@ class Profiler
 
         $defaults = array(
             'api_key' => isset($_SERVER['TIDEWAYS_APIKEY']) ? $_SERVER['TIDEWAYS_APIKEY'] : ini_get("tideways.api_key"),
-            'sample_rate' => isset($_SERVER['TIDEWAYS_SAMPLERATE']) ? intval($_SERVER['TIDEWAYS_SAMPLERATE']) : ini_get("tideways.sample_rate"),
-            'collect' => isset($_SERVER['TIDEWAYS_COLLECT']) ? $_SERVER['TIDEWAYS_COLLECT'] : (ini_get("tideways.collect") ?: self::MODE_TRACING),
+            'sample_rate' => isset($_SERVER['TIDEWAYS_SAMPLERATE']) ? intval($_SERVER['TIDEWAYS_SAMPLERATE']) : (ini_get("tideways.sample_rate") ?: 10),
+            'collect' => isset($_SERVER['TIDEWAYS_COLLECT']) ? $_SERVER['TIDEWAYS_COLLECT'] : (ini_get("tideways.collect") ?: self::MODE_PROFILING),
             'monitor' => isset($_SERVER['TIDEWAYS_MONITOR']) ? $_SERVER['TIDEWAYS_MONITOR'] : (ini_get("tideways.monitor") ?: self::MODE_BASIC),
             'distributed_tracing_hosts' => isset($_SERVER['TIDEWAYS_ALLOWED_HOSTS']) ? $_SERVER['TIDEWAYS_ALLOWED_HOSTS'] : (ini_get("tideways.distributed_tracing_hosts") ?: '127.0.0.1'),
             'distributed_trace' => null,
