@@ -64,6 +64,11 @@ class Profiler
     const FRAMEWORK_WORDPRESS          = 'wordpress';
     const FRAMEWORK_LARAVEL            = 'laravel';
     const FRAMEWORK_MAGENTO            = 'magento';
+    const FRAMEWORK_MAGENTO2           = 'magento2';
+    const FRAMEWORK_PRESTA16           = 'presta16';
+    const FRAMEWORK_DRUPAL8            = 'drupal8';
+    const FRAMEWORK_TYPO3              = 'typo3';
+    const FRAMEWORK_FLOW               = 'flow';
 
     /**
      * Default XHProf/Tideways hierachical profiling options.
@@ -165,6 +170,31 @@ class Profiler
             case self::FRAMEWORK_MAGENTO:
                 self::$defaultOptions['transaction_function'] = 'Mage_Core_Controller_Varien_Action::dispatch';
                 self::$defaultOptions['exception_function'] = 'Mage::printException';
+                break;
+
+            case self::FRAMEWORK_MAGENTO2:
+                self::$defaultOptions['transaction_function'] = 'Magento\Framework\App\ActionFactory::create';
+                self::$defaultOptions['exception_function'] = 'Magento\Framework\App\Http::catchException';
+                break;
+
+            case self::FRAMEWORK_PRESTA16:
+                self::$defaultOptions['transaction_function'] = 'ControllerCore::getController';
+                self::$defaultOptions['exception_function'] = 'PrestaShopExceptionCore::displayMessage';
+                break;
+
+            case self::FRAMEWORK_DRUPAL8:
+                self::$defaultOptions['transaction_function'] = 'Drupal\Core\Controller\ControllerResolver::createController';
+                self::$defaultOptions['exception_function'] = 'Symfony\Component\HttpKernel\HttpKernel::handleException';
+                break;
+
+            case self::FRAMEWORK_FLOW:
+                self::$defaultOptions['transaction_function'] = 'TYPO3\Flow\Mvc\Controller\ActionController::callActionMethod';
+                self::$defaultOptions['exception_function'] = 'TYPO3\Flow\Error\AbstractExceptionHandler::handleException';
+                break;
+
+            case self::FRAMEWORK_TYPO3:
+                self::$defaultOptions['transaction_function'] = 'TYPO3\CMS\Extbase\Mvc\Controller\ActionController::callActionMethod';
+                self::$defaultOptions['exception_function'] = 'TYPO3\CMS\Error\AbstractExceptionHandler::handleException';
                 break;
 
             default:
