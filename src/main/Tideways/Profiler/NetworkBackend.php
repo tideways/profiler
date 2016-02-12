@@ -51,14 +51,20 @@ class NetworkBackend implements Backend
         $fp = stream_socket_client($this->socketFile);
 
         if ($fp == false) {
+            \Tideways\Profiler::log(1, "Cannot connect to socket for storing trace.");
             restore_error_handler();
             return;
         }
 
+        $payload = json_encode(array('type' => self::TYPE_TRACE, 'payload' => $trace));
+
         stream_set_timeout($fp, 0, 10000); // 10 milliseconds max
-        fwrite($fp, json_encode(array('type' => self::TYPE_TRACE, 'payload' => $trace)));
+        if (fwrite($fp, $payload) < strlen($payload)) {
+            \Tideways\Profiler::log(1, "Could not write payload to socket.");
+        }
         fclose($fp);
         restore_error_handler();
+        \Tideways\Profiler::log(3, "Sent trace to socket.");
     }
 
     public function udpStore(array $trace)
@@ -67,6 +73,7 @@ class NetworkBackend implements Backend
         $fp = stream_socket_client("udp://" . $this->udp);
 
         if ($fp == false) {
+            \Tideways\Profiler::log(1, "Cannot connect to UDP port for storing trace.");
             restore_error_handler();
             return;
         }
@@ -76,8 +83,11 @@ class NetworkBackend implements Backend
         $payload = str_replace('"a":[]', '"a":{}', $payload);
 
         stream_set_timeout($fp, 0, 200);
-        fwrite($fp, $payload);
+        if (fwrite($fp, $payload) < strlen($payload)) {
+            \Tideways\Profiler::log(1, "Could not write payload to UDP port.");
+        }
         fclose($fp);
         restore_error_handler();
+        \Tideways\Profiler::log(3, "Sent trace to UDP port.");
     }
 }

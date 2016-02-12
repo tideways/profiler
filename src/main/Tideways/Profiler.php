@@ -97,6 +97,7 @@ class Profiler
     private static $mode = self::MODE_NONE;
     private static $backend;
     private static $extension = self::EXTENSION_NONE;
+    private static $logLevel = 0;
 
     public static function setBackend(Profiler\Backend $backend = null)
     {
@@ -281,6 +282,7 @@ class Profiler
             'monitor' => isset($_SERVER['TIDEWAYS_MONITOR']) ? $_SERVER['TIDEWAYS_MONITOR'] : (ini_get("tideways.monitor") ?: self::MODE_BASIC),
             'distributed_tracing_hosts' => isset($_SERVER['TIDEWAYS_ALLOWED_HOSTS']) ? $_SERVER['TIDEWAYS_ALLOWED_HOSTS'] : (ini_get("tideways.distributed_tracing_hosts") ?: '127.0.0.1'),
             'distributed_trace' => null,
+            'log_level' => ini_get("tideways.log_level") ?: 0,
         );
         $options = array_merge($defaults, $options);
 
@@ -288,6 +290,8 @@ class Profiler
             return;
         }
 
+        self::$logLevel = $options['log_level'];
+        self::log(3, sprintf("Start profiling decision for api-key %s and sample-rate: %d", $options['api_key'], $options['sample_rate']));
         self::init($options['api_key'], $options['distributed_trace'], $options['distributed_tracing_hosts']);
         self::decideProfiling($options['sample_rate'], $options);
     }
@@ -332,16 +336,21 @@ class Profiler
                     tideways_span_callback($function, $callback);
                 }
             }
+
+            self::log(2, "Starting tideways extension with mode: " . $mode);
         } elseif (self::$extension === self::EXTENSION_XHPROF && (self::$mode & self::MODE_PROFILING) > 0) {
             \Tideways\Traces\PhpSpan::clear();
             self::$currentRootSpan = new \Tideways\Traces\PhpSpan(0, 'app');
             self::$currentRootSpan->startTimer();
 
             xhprof_enable(0, self::$defaultOptions);
+            self::log(2, "Starting xhprof extension with mode: " . $mode);
         } else {
             \Tideways\Traces\PhpSpan::clear();
             self::$currentRootSpan = new \Tideways\Traces\PhpSpan(0, 'app');
             self::$currentRootSpan->startTimer();
+
+            self::log(2, "Starting non-extension based tracing with mode: " . $mode);
         }
     }
 
@@ -355,6 +364,7 @@ class Profiler
     private static function decideProfiling($treshold, array $options = array())
     {
         if (isset(self::$trace['pid']) && isset(self::$trace['sid']) && self::$trace['sid'] > 0) {
+            self::log(3, "Found parent trace, starting child.");
             self::$trace['keep'] = true; // always keep
             self::enableProfiler(self::MODE_TRACING);
             return;
@@ -378,13 +388,17 @@ class Profiler
 
         if (isset($vars['hash'], $vars['time'], $vars['user'], $vars['method'])) {
             $message = 'method=' . $vars['method'] . '&time=' . $vars['time'] . '&user=' . $vars['user'];
+            self::log(3, "Found explicit trigger trace parameters in request.");
 
             if ($vars['time'] > time() && hash_hmac('sha256', $message, md5(self::$trace['apiKey'])) === $vars['hash']) {
+                self::log(2, "Successful trigger trace request with valid hash.");
                 self::$trace['keep'] = true; // always keep
 
                 self::enableProfiler(self::MODE_FULL);
                 self::setCustomVariable('user', $vars['user']);
                 return;
+            } else {
+                self::log(1, "Invalid trigger trace request cannot be authenticated.");
             }
         }
 
@@ -760,6 +774,7 @@ class Profiler
             self::$backend->udpStore(self::$trace);
         }
         self::$trace = null; // free memory
+        self::$logLevel = 0;
     }
 
     private static function createRootSpan()
@@ -903,5 +918,21 @@ class Profiler
                tideways_prepend_overwritten() &&
                ini_get("auto_prepend_file") &&
                file_exists(stream_resolve_include_path(ini_get("auto_prepend_file")));
+    }
+
+    /**
+     * Log a message to the PHP error log when the defined log-level is higher
+     * or equal to the messages log-level.
+     *
+     * @param int $level Logs message level. 1 = warning, 2 = notice, 3 = debug
+     * @param string $message
+     * @return void
+     */
+    public static function log($level, $message)
+    {
+        if ($level <= self::$logLevel) {
+            $level = ($level === 3) ? "debug" : (($level === 2) ? "info" : "warn");
+            error_log(sprintf('[%s] %s', $level, $message), 0);
+        }
     }
 }
