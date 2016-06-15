@@ -291,7 +291,6 @@ class Profiler
         }
 
         self::$logLevel = $options['log_level'];
-        self::log(3, sprintf("Start profiling decision for api-key %s and sample-rate: %d", $options['api_key'], $options['sample_rate']));
         self::init($options['api_key'], $options['distributed_trace'], $options['distributed_tracing_hosts']);
         self::decideProfiling($options['sample_rate'], $options);
     }
@@ -337,20 +336,20 @@ class Profiler
                 }
             }
 
-            self::log(2, "Starting tideways extension with mode: " . $mode);
+            self::log(2, "Starting tideways extension for " . self::$trace['apiKey'] . " with mode: " . $mode);
         } elseif (self::$extension === self::EXTENSION_XHPROF && (self::$mode & self::MODE_PROFILING) > 0) {
             \Tideways\Traces\PhpSpan::clear();
             self::$currentRootSpan = new \Tideways\Traces\PhpSpan(0, 'app');
             self::$currentRootSpan->startTimer();
 
             xhprof_enable(0, self::$defaultOptions);
-            self::log(2, "Starting xhprof extension with mode: " . $mode);
+            self::log(2, "Starting xhprof extension for " . self::$trace['apiKey'] . " with mode: " . $mode);
         } else {
             \Tideways\Traces\PhpSpan::clear();
             self::$currentRootSpan = new \Tideways\Traces\PhpSpan(0, 'app');
             self::$currentRootSpan->startTimer();
 
-            self::log(2, "Starting non-extension based tracing with mode: " . $mode);
+            self::log(2, "Starting non-extension based tracing for " . self::$trace['apiKey'] . " with mode: " . $mode);
         }
     }
 
@@ -401,6 +400,8 @@ class Profiler
                 self::log(1, "Invalid trigger trace request cannot be authenticated.");
             }
         }
+
+        self::log(3, sprintf("Profiling decision with sample-rate: %d", $treshold));
 
         $collectMode = self::convertMode($options['collect']);
         $monitorMode = self::convertMode($options['monitor']) & self::MODE_BASIC;
@@ -936,7 +937,7 @@ class Profiler
     {
         if ($level <= self::$logLevel) {
             $level = ($level === 3) ? "debug" : (($level === 2) ? "info" : "warn");
-            error_log(sprintf('[%s] %s', $level, $message), 0);
+            error_log(sprintf('[%s] tideways - %s', $level, $message), 0);
         }
     }
 }
