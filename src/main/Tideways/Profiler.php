@@ -748,6 +748,10 @@ class Profiler
                     $annotations['title'] .= (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['SERVER_ADDR'] . self::getRequestUri();
                 }
 
+                if (isset($_SERVER['QUERY_STRING'])) {
+                    $annotations['query'] = $_SERVER['QUERY_STRING'];
+                }
+
             } elseif (php_sapi_name() === "cli") {
                 $annotations['title'] = basename($_SERVER['argv'][0]);
             }
