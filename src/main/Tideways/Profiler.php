@@ -69,6 +69,10 @@ class Profiler
     const FRAMEWORK_DRUPAL8            = 'drupal8';
     const FRAMEWORK_TYPO3              = 'typo3';
     const FRAMEWORK_FLOW               = 'flow';
+    const FRAMEWORK_CAKE2              = 'cake2';
+    const FRAMEWORK_CAKE3              = 'cake3';
+    const FRAMEWORK_YII                = 'yii';
+    const FRAMEWORK_YII2               = 'yii2';
 
     /**
      * Default XHProf/Tideways hierachical profiling options.
@@ -196,6 +200,22 @@ class Profiler
             case self::FRAMEWORK_TYPO3:
                 self::$defaultOptions['transaction_function'] = 'TYPO3\CMS\Extbase\Mvc\Controller\ActionController::callActionMethod';
                 self::$defaultOptions['exception_function'] = 'TYPO3\CMS\Error\AbstractExceptionHandler::handleException';
+                break;
+
+            case self::FRAMEWORK_CAKE2:
+                self::$defaultOptions['transaction_function'] = 'Controller::invokeAction';
+                break;
+
+            case self::FRAMEWORK_CAKE3:
+                self::$defaultOptions['transaction_function'] = 'Cake\\Controller\\Controller::invokeAction';
+                break;
+
+            case self::FRAMEWORK_YII:
+                self::$defaultOptions['transaction_function'] = 'CController::run';
+                break;
+
+            case self::FRAMEWORK_YII2:
+                self::$defaultOptions['transaction_function'] = 'yii\\base\\Module::runAction';
                 break;
 
             default:
