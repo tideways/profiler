@@ -1,11 +1,9 @@
 {
     "name": "tideways/profiler",
     "description": "Client library that wraps Xhprof profile collection and sends to Tideways",
-    "license": "MIT",
+    "license": "apache-2.0",
     "autoload": {
-        "psr-0": {
-            "Tideways\\": "src/main",
-        },
+        "psr-0": {"Tideways\\": "src/main"},
         "files": ["Tideways.php"]
     }
 }
