@@ -11,6 +11,493 @@
  * to kontakt@beberlei.de so I can send you a copy immediately.
  */
 
+namespace Tideways\Traces;
+
+/**
+ * Abstraction for trace spans.
+ *
+ * Different implementations based on support
+ */
+abstract class Span
+{
+    /**
+     * Create Child span
+     * @private
+     */
+    abstract public function createSpan($name = null);
+
+    /**
+     * @private
+     * @return array
+     */
+    abstract public function getSpans();
+
+    /**
+     * 32/64 bit random integer.
+     *
+     * @return int
+     */
+    public abstract function getId();
+
+    /**
+     * Record start of timer in microseconds.
+     *
+     * If timer is already running, don't record another start.
+     */
+    public abstract function startTimer();
+
+    /**
+     * Record stop of timer in microseconds.
+     *
+     * If timer is not running, don't record.
+     */
+    public abstract function stopTimer();
+
+    /**
+     * Annotate span with metadata.
+     *
+     * @param array<string,scalar>
+     */
+    public abstract function annotate(array $annotations);
+}
+
+namespace Tideways\Traces;
+
+class NullSpan extends Span
+{
+    public function createSpan($name = null)
+    {
+        return $this;
+    }
+
+    public function getSpans()
+    {
+        return array();
+    }
+
+    public function getId()
+    {
+        return 0;
+    }
+
+    /**
+     * Record start of timer in microseconds.
+     *
+     * If timer is already running, don't record another start.
+     */
+    public function startTimer()
+    {
+    }
+
+    /**
+     * Record stop of timer in microseconds.
+     *
+     * If timer is not running, don't record.
+     */
+    public function stopTimer()
+    {
+    }
+
+    /**
+     * Annotate span with metadata.
+     *
+     * @param array<string,scalar>
+     */
+    public function annotate(array $annotations)
+    {
+    }
+}
+/**
+ * Tideways
+ *
+ * LICENSE
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this package in the file LICENSE.txt.
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to kontakt@beberlei.de so I can send you a copy immediately.
+ */
+
+namespace Tideways\Traces;
+
+use Tideways\Profiler;
+
+/**
+ * When Tideways PHP extension is not installed the span API
+ * is handled in memory.
+ */
+class PhpSpan extends Span
+{
+    const ID = 'i';
+    const NAME = 'n';
+    const STARTS = 'b';
+    const STOPS = 'e';
+    const ANNOTATIONS = 'a';
+
+    /**
+     * @var array
+     */
+    private static $spans = array();
+    private static $startTime = false;
+
+    /**
+     * @var bool
+     */
+    private $timerRunning = false;
+
+    /**
+     * @var int
+     */
+    private $idx;
+
+    static public function clear()
+    {
+        self::$spans = array();
+        self::$startTime = microtime(true);
+    }
+
+    public function createSpan($name = null)
+    {
+        $idx = count(self::$spans);
+        return new self($idx, $name);
+    }
+
+    /**
+     * @return int
+     */
+    private static function currentDuration()
+    {
+        return intval(round((microtime(true) - self::$startTime) * 1000000));
+    }
+
+    public function getSpans()
+    {
+        return self::$spans;
+    }
+
+    public function __construct($idx, $name = null)
+    {
+        $this->idx = $idx;
+        self::$spans[$idx] = array(
+            self::STARTS => array(),
+            self::STOPS => array(),
+            self::ANNOTATIONS => array(),
+        );
+        if ($name) {
+            self::$spans[$idx][self::NAME] = $name;
+        }
+    }
+
+    public function getId()
+    {
+        if (!isset(self::$spans[$this->idx][self::ID])) {
+            self::$spans[$this->idx][self::ID] = \Tideways\Profiler::generateRandomId();
+        }
+
+        return self::$spans[$this->idx][self::ID];
+    }
+
+    public function startTimer()
+    {
+        if ($this->timerRunning) {
+            return;
+        }
+
+        self::$spans[$this->idx][self::STARTS][] = self::currentDuration();
+        $this->timerRunning = true;
+    }
+
+    public function stopTimer()
+    {
+        if (!$this->timerRunning) {
+            return;
+        }
+
+        self::$spans[$this->idx][self::STOPS][] = self::currentDuration();
+        $this->timerRunning = false;
+    }
+
+    public function annotate(array $annotations)
+    {
+        foreach ($annotations as $name => $value) {
+            if (!is_scalar($value)) {
+                continue;
+            }
+
+            self::$spans[$this->idx][self::ANNOTATIONS][$name] = (string)$value;
+        }
+    }
+}
+
+namespace Tideways\Traces;
+
+class TwExtensionSpan extends Span
+{
+    /**
+     * @var int
+     */
+    private $idx;
+
+    public function createSpan($name = null)
+    {
+        return new self(tideways_span_create($name));
+    }
+
+    public function getSpans()
+    {
+        return tideways_get_spans();
+    }
+
+    public function __construct($idx)
+    {
+        $this->idx = $idx;
+    }
+
+    /**
+     * 32/64 bit random integer.
+     *
+     * @return int
+     */
+    public function getId()
+    {
+        return $this->idx;
+    }
+
+    /**
+     * Record start of timer in microseconds.
+     *
+     * If timer is already running, don't record another start.
+     */
+    public function startTimer()
+    {
+        tideways_span_timer_start($this->idx);
+    }
+
+    /**
+     * Record stop of timer in microseconds.
+     *
+     * If timer is not running, don't record.
+     */
+    public function stopTimer()
+    {
+        tideways_span_timer_stop($this->idx);
+    }
+
+    /**
+     * Annotate span with metadata.
+     *
+     * @param array<string,scalar>
+     */
+    public function annotate(array $annotations)
+    {
+        tideways_span_annotate($this->idx, $annotations);
+    }
+}
+
+namespace Tideways\Traces;
+
+class DistributedId
+{
+    public $rootTraceId;
+    public $parentTraceId;
+    public $parentSpanId;
+
+    public function __construct($parentSpanId, $parentTraceId, $rootTraceId = null)
+    {
+        if (!is_int($parentSpanId) || !is_int($parentTraceId) || ($rootTraceId !== null && !is_int($rootTraceId))) {
+            throw new \InvalidArgumentException("DistributedId must consist of integer values.");
+        }
+
+        $this->parentTraceId = $parentTraceId;
+        $this->parentSpanId = $parentSpanId;
+        $this->rootTraceId = $rootTraceId ?: $parentTraceId;
+    }
+}
+/**
+ * Tideways
+ *
+ * LICENSE
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this package in the file LICENSE.txt.
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to kontakt@beberlei.de so I can send you a copy immediately.
+ */
+
+namespace Tideways\Profiler;
+
+/**
+ * Low-level abstraction for storage of profiling data.
+ */
+interface Backend
+{
+    public function socketStore(array $trace);
+    public function udpStore(array $trace);
+}
+/**
+ * Tideways
+ *
+ * LICENSE
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this package in the file LICENSE.txt.
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to kontakt@beberlei.de so I can send you a copy immediately.
+ */
+
+namespace Tideways\Profiler;
+
+class NetworkBackend implements Backend
+{
+    /**
+     * Old v1 type profile format.
+     *
+     * @var string
+     */
+    const TYPE_PROFILE = 'profile';
+    /**
+     * v2 type traces
+     */
+    const TYPE_TRACE = 'trace';
+
+    private $socketFile;
+    private $udp;
+
+    public function __construct($socketFile = "unix:///var/run/tideways/tidewaysd.sock", $udp = "127.0.0.1:8135")
+    {
+        $this->socketFile = $socketFile;
+        $this->udp = $udp;
+    }
+
+    /**
+     * To avoid user apps messing up socket errors that Tideways can produce
+     * when the daemon is not reachable, this error handler is used
+     * wrapped around daemons to guard user apps from erroring.
+     */
+    public static function ignoreErrorsHandler($errno, $errstr, $errfile, $errline)
+    {
+        // ignore all errors!
+    }
+
+    public function socketStore(array $trace)
+    {
+        set_error_handler(array(__CLASS__, "ignoreErrorsHandler"));
+        $fp = stream_socket_client($this->socketFile);
+
+        if ($fp == false) {
+            \Tideways\Profiler::log(1, "Cannot connect to socket for storing trace.");
+            restore_error_handler();
+            return;
+        }
+
+        $payload = json_encode(array('type' => self::TYPE_TRACE, 'payload' => $trace));
+
+        stream_set_timeout($fp, 0, 10000); // 10 milliseconds max
+        if (fwrite($fp, $payload) < strlen($payload)) {
+            \Tideways\Profiler::log(1, "Could not write payload to socket.");
+        }
+        fclose($fp);
+        restore_error_handler();
+        \Tideways\Profiler::log(3, "Sent trace to socket.");
+    }
+
+    public function udpStore(array $trace)
+    {
+        set_error_handler(array(__CLASS__, "ignoreErrorsHandler"));
+        $fp = stream_socket_client("udp://" . $this->udp);
+
+        if ($fp == false) {
+            \Tideways\Profiler::log(1, "Cannot connect to UDP port for storing trace.");
+            restore_error_handler();
+            return;
+        }
+
+        $payload = json_encode($trace);
+        // Golang is very strict about json types.
+        $payload = str_replace('"a":[]', '"a":{}', $payload);
+
+        stream_set_timeout($fp, 0, 200);
+        if (fwrite($fp, $payload) < strlen($payload)) {
+            \Tideways\Profiler::log(1, "Could not write payload to UDP port.");
+        }
+        fclose($fp);
+        restore_error_handler();
+        \Tideways\Profiler::log(3, "Sent trace to UDP port.");
+    }
+}
+/**
+ * Tideways Profiler PHP Library
+ *
+ * LICENSE
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this package in the file LICENSE.txt.
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to kontakt@beberlei.de so I can send you a copy immediately.
+ */
+
+namespace Tideways\Profiler;
+
+/**
+ * Convert a Backtrace to a String like {@see Exception::getTraceAsString()} would do.
+ */
+class BacktraceConverter
+{
+    static public function convertToString(array $backtrace)
+    {
+        $trace = '';
+
+        foreach ($backtrace as $k => $v) {
+            if (!isset($v['function'])) {
+                continue;
+            }
+
+            if (!isset($v['file'])) {
+                $v['file'] = '';
+            }
+
+            if (!isset($v['line'])) {
+                $v['line'] = '';
+            }
+
+            $args = '';
+            if (isset($v['args'])) {
+                $args = implode(', ', array_map(function ($arg) {
+                    return (is_object($arg)) ? get_class($arg) : gettype($arg);
+                }, $v['args']));
+            }
+
+            $trace .= '#' . ($k) . ' ';
+            if (isset($v['file'])) {
+                $trace .= $v['file'] . '(' . $v['line'] . '): ';
+            }
+
+            if (isset($v['class'])) {
+                $trace .= $v['class'] . '->';
+            }
+
+            $trace .= $v['function'] . '(' . $args .')' . "\n";
+        }
+
+        return $trace;
+    }
+}
+/**
+ * Tideways
+ *
+ * LICENSE
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this package in the file LICENSE.txt.
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to kontakt@beberlei.de so I can send you a copy immediately.
+ */
+
 namespace Tideways;
 
 use Tideways\Traces\DistributedId;
@@ -963,3 +1450,27 @@ class Profiler
         }
     }
 }
+/**
+ * Tidways Profiler
+ *
+ * LICENSE
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this package in the file LICENSE.txt.
+ * If you did not receive a copy of the license and are unable to
+ * obtain it through the world-wide-web, please send an email
+ * to kontakt@beberlei.de so I can send you a copy immediately.
+ */
+
+namespace QafooLabs;
+
+/**
+ * Backwards compatibility layer
+ *
+ * @deprecated use \Tideways\Profiler instead.
+ */
+class Profiler extends \Tideways\Profiler
+{
+}
+// auto-starts the profiler if that is configured
+\Tideways\Profiler::autoStart();
