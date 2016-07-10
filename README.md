@@ -2,12 +2,14 @@
 
 PHP Client Library for [Tideways PHP Profiler](https://tideways.io) platform.
 
-See more information in the [documentation](https://tideways.io/profiler/docs).
-
-Not using Tideways product and looking for a modern XHProf compatible Profiler?
+Not using Tideways as a service and looking for a modern XHProf compatible Profiler?
 See [Tideways PHP Extension](https://github.com/tideways/php-profiler-extension).
 
 This repository only contains a snapshotted, compiled version of the PHP code base.
+
+You can use it as a composer package, if you are using Tideways with HHVM, but
+otherwise it is not needed to interact with this repository/package. For PHP
+this source code is embedded into the DEB, RPM or Tarball downloads.
 
 ## License (Apache2)
 
