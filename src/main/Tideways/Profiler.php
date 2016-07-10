@@ -204,10 +204,12 @@ class Profiler
 
             case self::FRAMEWORK_CAKE2:
                 self::$defaultOptions['transaction_function'] = 'Controller::invokeAction';
+                self::$defaultOptions['exception_function'] = 'ExceptionRenderer::__construct';
                 break;
 
             case self::FRAMEWORK_CAKE3:
                 self::$defaultOptions['transaction_function'] = 'Cake\\Controller\\Controller::invokeAction';
+                self::$defaultOptions['exception_function'] = 'Cake\\Error\\ExceptionRenderer::__construct';
                 break;
 
             case self::FRAMEWORK_YII:
