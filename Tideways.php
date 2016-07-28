@@ -633,7 +633,7 @@ class Profiler
                 break;
 
             case self::FRAMEWORK_ZEND_FRAMEWORK2:
-                self::$defaultOptions['transaction_function'] = 'Zend\\MVC\\Controller\\ControllerManager::get';
+                self::$defaultOptions['transaction_function'] = 'Zend\Mvc\Controller\ControllerManager::get';
                 break;
 
             case self::FRAMEWORK_SYMFONY2_COMPONENT:
