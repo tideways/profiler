@@ -1297,13 +1297,6 @@ class Profiler
         self::$logLevel = 0;
     }
 
-    private static function createRootSpan()
-    {
-
-        return $span;
-    }
-
-
     /**
      * Use Request or Script information for the transaction name.
      *
