@@ -113,17 +113,6 @@ class NullSpan extends Span
     {
     }
 }
-/**
- * Tideways
- *
- * LICENSE
- *
- * This source file is subject to the MIT license that is bundled
- * with this package in the file LICENSE.txt.
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to kontakt@beberlei.de so I can send you a copy immediately.
- */
 
 namespace Tideways\Traces;
 
@@ -301,37 +290,6 @@ class TwExtensionSpan extends Span
     }
 }
 
-namespace Tideways\Traces;
-
-class DistributedId
-{
-    public $rootTraceId;
-    public $parentTraceId;
-    public $parentSpanId;
-
-    public function __construct($parentSpanId, $parentTraceId, $rootTraceId = null)
-    {
-        if (!is_int($parentSpanId) || !is_int($parentTraceId) || ($rootTraceId !== null && !is_int($rootTraceId))) {
-            throw new \InvalidArgumentException("DistributedId must consist of integer values.");
-        }
-
-        $this->parentTraceId = $parentTraceId;
-        $this->parentSpanId = $parentSpanId;
-        $this->rootTraceId = $rootTraceId ?: $parentTraceId;
-    }
-}
-/**
- * Tideways
- *
- * LICENSE
- *
- * This source file is subject to the MIT license that is bundled
- * with this package in the file LICENSE.txt.
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to kontakt@beberlei.de so I can send you a copy immediately.
- */
-
 namespace Tideways\Profiler;
 
 /**
@@ -342,17 +300,6 @@ interface Backend
     public function socketStore(array $trace);
     public function udpStore(array $trace);
 }
-/**
- * Tideways
- *
- * LICENSE
- *
- * This source file is subject to the MIT license that is bundled
- * with this package in the file LICENSE.txt.
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to kontakt@beberlei.de so I can send you a copy immediately.
- */
 
 namespace Tideways\Profiler;
 
@@ -401,7 +348,22 @@ class NetworkBackend implements Backend
 
         $payload = json_encode(array('type' => self::TYPE_TRACE, 'payload' => $trace));
 
-        stream_set_timeout($fp, 0, 10000); // 10 milliseconds max
+        $timeout = (int)ini_get('tideways.timeout');
+
+        // We always enforce a timeout, even when the user configures
+        // tideways.timeout=0 manually
+        if (!$timeout) {
+            $timeout = 10000;
+        }
+
+        if ($trace['keep']) {
+            // as a dev trace we collect more data and the developer can be
+            // waiting a little longer to make sure the socket gets everything.
+            $timeout *= 10;
+        }
+
+        stream_set_timeout($fp, 0, $timeout); // 10 milliseconds max
+
         if (fwrite($fp, $payload) < strlen($payload)) {
             \Tideways\Profiler::log(1, "Could not write payload to socket.");
         }
@@ -434,17 +396,6 @@ class NetworkBackend implements Backend
         \Tideways\Profiler::log(3, "Sent trace to UDP port.");
     }
 }
-/**
- * Tideways Profiler PHP Library
- *
- * LICENSE
- *
- * This source file is subject to the MIT license that is bundled
- * with this package in the file LICENSE.txt.
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to kontakt@beberlei.de so I can send you a copy immediately.
- */
 
 namespace Tideways\Profiler;
 
@@ -492,21 +443,8 @@ class BacktraceConverter
         return $trace;
     }
 }
-/**
- * Tideways
- *
- * LICENSE
- *
- * This source file is subject to the MIT license that is bundled
- * with this package in the file LICENSE.txt.
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to kontakt@beberlei.de so I can send you a copy immediately.
- */
 
 namespace Tideways;
-
-use Tideways\Traces\DistributedId;
 
 /**
  * Tideways PHP API
@@ -534,6 +472,7 @@ use Tideways\Traces\DistributedId;
  */
 class Profiler
 {
+    const MODE_DISABLED  = 0;
     const MODE_NONE = 0;
     const MODE_BASIC = 1;
     const MODE_PROFILING = 2;
@@ -585,13 +524,14 @@ class Profiler
         'exception_function' => null,
         'watches' => array(),
         'callbacks' => array(),
+        'framework' => null,
     );
 
     private static $trace;
     private static $currentRootSpan;
     private static $shutdownRegistered = false;
     private static $error = false;
-    private static $mode = self::MODE_NONE;
+    private static $mode = self::MODE_DISABLED;
     private static $backend;
     private static $extension = self::EXTENSION_NONE;
     private static $logLevel = 0;
@@ -626,6 +566,8 @@ class Profiler
      */
     public static function detectFramework($framework)
     {
+        self::$defaultOptions['framework'] = $framework;
+
         switch ($framework) {
             case self::FRAMEWORK_ZEND_FRAMEWORK1:
                 self::$defaultOptions['transaction_function'] = 'Zend_Controller_Action::dispatch';
@@ -633,7 +575,7 @@ class Profiler
                 break;
 
             case self::FRAMEWORK_ZEND_FRAMEWORK2:
-                self::$defaultOptions['transaction_function'] = 'Zend\\MVC\\Controller\\ControllerManager::get';
+                self::$defaultOptions['transaction_function'] = 'Zend\\Mvc\\Controller\\ControllerManager::get';
                 break;
 
             case self::FRAMEWORK_SYMFONY2_COMPONENT:
@@ -739,11 +681,25 @@ class Profiler
      * It adds a correlation id that forces the profile into "developer"
      * traces and activates the memory profiling as well.
      *
-     * WARNING: This method can cause huge performance impact on production setups.
+     * WARNING: This method can cause huge performance impact on production
+     * setups. Make sure to wrap this in your own sampling code and don't
+     * execute it in every request.
      */
     public static function startDevelopment($apiKey = null, array $options = array())
     {
-        self::start($apiKey, 100, $options, 4);
+        if ($apiKey) {
+            $options['api_key'] = $apiKey;
+        } else if (!isset($options['api_key'])) {
+            $options['api_key'] = isset($_SERVER['TIDEWAYS_APIKEY']) ? $_SERVER['TIDEWAYS_APIKEY'] : ini_get("tideways.api_key");
+        }
+
+        $time = time() + 60;
+        $_SERVER['TIDEWAYS_SESSION'] =
+            "time=" . $time . "&user=&method=&hash=" .
+            hash_hmac('sha256', 'method=&time=' . $time . '&user=', md5($options['api_key']))
+        ;
+
+        self::start($options);
     }
 
     /**
@@ -765,9 +721,10 @@ class Profiler
      * Factors that influence sample rate:
      *
      * 1. Second parameter $sampleRate to start() method.
-     * 2. _qprofiler Query Parameter (string key is deprecated or array)
+     * 2. _tideways Query Parameter (string key is deprecated or array)
      * 3. Cookie TIDEWAYS_SESSION
      * 4. TIDEWAYS_SAMPLERATE environment variable.
+     * 5. X-TIDEWAYS-PROFILER HTTP header
      *
      * start() automatically invokes a register shutdown handler that stops and
      * transmits the profiling data to the local daemon for further processing.
@@ -779,7 +736,7 @@ class Profiler
      */
     public static function start($options = array(), $sampleRate = null)
     {
-        if (self::$mode !== self::MODE_NONE) {
+        if (self::$mode !== self::MODE_DISABLED) {
             return;
         }
 
@@ -795,9 +752,11 @@ class Profiler
             'sample_rate' => isset($_SERVER['TIDEWAYS_SAMPLERATE']) ? intval($_SERVER['TIDEWAYS_SAMPLERATE']) : (ini_get("tideways.sample_rate") ?: 10),
             'collect' => isset($_SERVER['TIDEWAYS_COLLECT']) ? $_SERVER['TIDEWAYS_COLLECT'] : (ini_get("tideways.collect") ?: self::MODE_PROFILING),
             'monitor' => isset($_SERVER['TIDEWAYS_MONITOR']) ? $_SERVER['TIDEWAYS_MONITOR'] : (ini_get("tideways.monitor") ?: self::MODE_BASIC),
+            'triggered' => self::MODE_FULL,
             'distributed_tracing_hosts' => isset($_SERVER['TIDEWAYS_ALLOWED_HOSTS']) ? $_SERVER['TIDEWAYS_ALLOWED_HOSTS'] : (ini_get("tideways.distributed_tracing_hosts") ?: '127.0.0.1'),
             'distributed_trace' => null,
             'log_level' => ini_get("tideways.log_level") ?: 0,
+            'service' => ini_get("tideways.service"),
         );
         $options = array_merge($defaults, $options);
 
@@ -806,7 +765,7 @@ class Profiler
         }
 
         self::$logLevel = $options['log_level'];
-        self::init($options['api_key'], $options['distributed_trace'], $options['distributed_tracing_hosts']);
+        self::init($options['api_key'], $options);
         self::decideProfiling($options['sample_rate'], $options);
     }
 
@@ -820,7 +779,7 @@ class Profiler
     {
         self::$mode = $mode;
 
-        if (self::$extension === self::EXTENSION_TIDEWAYS && (self::$mode !== self::MODE_NONE)) {
+        if (self::$extension === self::EXTENSION_TIDEWAYS && (self::$mode !== self::MODE_DISABLED)) {
             switch (self::$mode) {
                 case self::MODE_FULL:
                     $flags = 0;
@@ -869,6 +828,28 @@ class Profiler
     }
 
     /**
+     * Check if headers, cookie or environment variables for a developer trace
+     * are present. This method does not validate if the passed information is
+     * actually valid for the current API Key.
+     *
+     * @return bool
+     */
+    public static function containsDeveloperTraceRequest()
+    {
+        if (isset($_SERVER['HTTP_X_TIDEWAYS_PROFILER']) && is_string($_SERVER['HTTP_X_TIDEWAYS_PROFILER'])) {
+            return true;
+        } else if (isset($_SERVER['TIDEWAYS_SESSION']) && is_string($_SERVER['TIDEWAYS_SESSION'])) {
+            return true;
+        } else if (isset($_COOKIE['TIDEWAYS_SESSION']) && is_string($_COOKIE['TIDEWAYS_SESSION'])) {
+            return true;
+        } else if (isset($_GET['_tideways']) && is_array($_GET['_tideways'])) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Decide in which mode to start collecting data.
      *
      * @param int $treshold (0-100)
@@ -877,13 +858,6 @@ class Profiler
      */
     private static function decideProfiling($treshold, array $options = array())
     {
-        if (isset(self::$trace['pid']) && isset(self::$trace['sid']) && self::$trace['sid'] > 0) {
-            self::log(3, "Found parent trace, starting child.");
-            self::$trace['keep'] = true; // always keep
-            self::enableProfiler(self::MODE_TRACING);
-            return;
-        }
-
         $vars = array();
 
         if (isset($_SERVER['HTTP_X_TIDEWAYS_PROFILER']) && is_string($_SERVER['HTTP_X_TIDEWAYS_PROFILER'])) {
@@ -908,7 +882,7 @@ class Profiler
                 self::log(2, "Successful trigger trace request with valid hash.");
                 self::$trace['keep'] = true; // always keep
 
-                self::enableProfiler(self::MODE_FULL);
+                self::enableProfiler($options['triggered']);
                 self::setCustomVariable('user', $vars['user']);
                 return;
             } else {
@@ -937,11 +911,11 @@ class Profiler
         if (is_string($mode)) {
             $mode = defined('\Tideways\Profiler::MODE_' . strtoupper($mode))
                 ? constant('\Tideways\Profiler::MODE_' . strtoupper($mode))
-                : self::MODE_NONE;
+                : self::MODE_DISABLED;
         } else if (!is_int($mode)) {
-            $mode = self::MODE_NONE;
+            $mode = self::MODE_DISABLED;
         } else if (($mode & (self::MODE_FULL|self::MODE_BASIC)) === 0) {
-            $mode = self::MODE_NONE;
+            $mode = self::MODE_DISABLED;
         }
 
         return $mode;
@@ -954,8 +928,8 @@ class Profiler
      */
     public static function ignoreTransaction()
     {
-        if (self::$mode !== self::MODE_NONE) {
-            self::$mode = self::MODE_NONE;
+        if (self::$mode !== self::MODE_DISABLED) {
+            self::$mode = self::MODE_DISABLED;
 
             if (self::$extension === self::EXTENSION_XHPROF) {
                 xhprof_disable();
@@ -965,7 +939,7 @@ class Profiler
         }
     }
 
-    private static function init($apiKey, $distributedId = null, $distributedTracingHosts)
+    private static function init($apiKey, $options)
     {
         if (self::$shutdownRegistered == false) {
             register_shutdown_function(array("Tideways\\Profiler", "shutdown"));
@@ -993,70 +967,9 @@ class Profiler
             'tx' => 'default',
         );
 
-        if ($distributedId === null &&
-            isset($_SERVER['HTTP_X_TW_TRACEID']) &&
-            isset($_SERVER['HTTP_X_TW_SPANID']) &&
-            self::allowAutoStartDistributedTracing($distributedTracingHosts)) {
-
-            $distributedId = new DistributedId(
-                (int)$_SERVER['HTTP_X_TW_SPANID'],
-                (int)$_SERVER['HTTP_X_TW_TRACEID'],
-                isset($_SERVER['HTTP_X_TW_ROOTID']) ? (int)$_SERVER['HTTP_X_TW_ROOTID'] : null
-            );
+        if ($options['service']) {
+            self::$trace['service'] = $options['service'];
         }
-
-        if ($distributedId instanceof DistributedId) {
-            self::$trace['sid'] = $distributedId->parentSpanId;
-            self::$trace['pid'] = $distributedId->parentTraceId;
-            self::$trace['rid'] = $distributedId->rootTraceId;
-        }
-    }
-
-    /**
-     * Check if the current requests ip-address indicates it comes
-     * from an allowed host to enable distributed tracing.
-     *
-     * @param string $allowedHosts
-     * @return bool
-     */
-    private static function allowAutoStartDistributedTracing($allowedHosts)
-    {
-        $trustedProxies = array();
-        $headerName = false;
-
-        if (!isset($_SERVER['REMOTE_ADDR'])) {
-            return false;
-        }
-
-        $checkIp = $_SERVER['REMOTE_ADDR'];
-
-        if (strpos($allowedHosts, ':') !== false) {
-            $parts = explode(':', $allowedHosts);
-
-            if (count($parts) !== 3) {
-                return false;
-            }
-
-            $headerName = "HTTP_" . strtoupper(str_replace("-", "_", $parts[0]));
-            $trustedProxies = explode(',', $parts[1]);
-            $allowedHosts = explode(',', $parts[2]);
-
-            if (isset($_SERVER[$headerName])) {
-                $proxies = explode(',', $_SERVER[$headerName]);
-                $proxies[] = $_SERVER['REMOTE_ADDR'];
-
-                foreach (array_reverse($proxies) as $proxyIp) {
-                    if (!in_array($proxyIp, $trustedProxies)) {
-                        $checkIp = $proxyIp;
-                        break;
-                    }
-                }
-            }
-        } else {
-            $allowedHosts = explode(',', $allowedHosts);
-        }
-
-        return in_array($checkIp, $allowedHosts);
     }
 
     /**
@@ -1072,6 +985,11 @@ class Profiler
     public static function setTransactionName($name)
     {
         self::$trace['tx'] = !empty($name) ? $name : 'default';
+    }
+
+    public static function setServiceName($name)
+    {
+        self::$trace['service'] = $name;
     }
 
     /**
@@ -1099,7 +1017,7 @@ class Profiler
 
     public static function isStarted()
     {
-        return self::$mode !== self::MODE_NONE;
+        return self::$mode !== self::MODE_DISABLED;
     }
 
     public static function isProfiling()
@@ -1213,7 +1131,7 @@ class Profiler
      */
     public static function stop()
     {
-        if (self::$mode === self::MODE_NONE) {
+        if (self::$mode === self::MODE_DISABLED) {
             return;
         }
 
@@ -1231,7 +1149,7 @@ class Profiler
 
         $profilingData = array();
 
-        if (($mode & self::MODE_FULL) > 0) {
+        if (($mode & self::MODE_FULL) > 0 || self::$error) {
             if (self::$extension === self::EXTENSION_TIDEWAYS) {
                 $profilingData = tideways_disable();
             } elseif (self::$extension === self::EXTENSION_XHPROF) {
@@ -1243,6 +1161,10 @@ class Profiler
 
             if (self::$extension === self::EXTENSION_TIDEWAYS) {
                 $annotations['xhpv'] = phpversion('tideways');
+
+                if (self::$defaultOptions['framework']) {
+                    $annotations['framework'] = self::$defaultOptions['framework'];
+                }
             } elseif (self::$extension === self::EXTENSION_XHPROF) {
                 $annotations['xhpv'] = phpversion('xhprof');
             }
@@ -1251,6 +1173,7 @@ class Profiler
                 $annotations['xdebug'] = '1';
             }
             $annotations['php'] = PHP_VERSION;
+            $annotations['sapi'] = php_sapi_name();
 
             if (isset($_SERVER['REQUEST_URI'])) {
                 $annotations['title'] = '';
@@ -1268,7 +1191,7 @@ class Profiler
                     $annotations['query'] = $_SERVER['QUERY_STRING'];
                 }
 
-            } elseif (php_sapi_name() === "cli") {
+            } elseif ($annotations['sapi'] === "cli") {
                 $annotations['title'] = basename($_SERVER['argv'][0]);
             }
         } else {
@@ -1282,7 +1205,7 @@ class Profiler
             self::$trace['profdata'] = $profilingData ?: array();
         }
 
-        self::$mode = self::MODE_NONE;
+        self::$mode = self::MODE_DISABLED;
 
         $spans = self::$currentRootSpan->getSpans();
 
@@ -1384,7 +1307,7 @@ class Profiler
 
     public static function shutdown()
     {
-        if (self::$mode === self::MODE_NONE) {
+        if (self::$mode === self::MODE_DISABLED) {
             return;
         }
 
@@ -1455,28 +1378,6 @@ class Profiler
             error_log(sprintf('[%s] tideways - %s', $level, $message), 0);
         }
     }
-}
-/**
- * Tidways Profiler
- *
- * LICENSE
- *
- * This source file is subject to the MIT license that is bundled
- * with this package in the file LICENSE.txt.
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to kontakt@beberlei.de so I can send you a copy immediately.
- */
-
-namespace QafooLabs;
-
-/**
- * Backwards compatibility layer
- *
- * @deprecated use \Tideways\Profiler instead.
- */
-class Profiler extends \Tideways\Profiler
-{
 }
 // auto-starts the profiler if that is configured
 \Tideways\Profiler::autoStart();
