@@ -501,6 +501,7 @@ class Profiler
     const FRAMEWORK_DRUPAL8            = 'drupal8';
     const FRAMEWORK_TYPO3              = 'typo3';
     const FRAMEWORK_FLOW               = 'flow';
+    const FRAMEWORK_FLOW4              = 'flow4';
     const FRAMEWORK_CAKE2              = 'cake2';
     const FRAMEWORK_CAKE3              = 'cake3';
     const FRAMEWORK_YII                = 'yii';
@@ -630,6 +631,11 @@ class Profiler
             case self::FRAMEWORK_FLOW:
                 self::$defaultOptions['transaction_function'] = 'TYPO3\Flow\Mvc\Controller\ActionController::callActionMethod';
                 self::$defaultOptions['exception_function'] = 'TYPO3\Flow\Error\AbstractExceptionHandler::handleException';
+                break;
+
+            case self::FRAMEWORK_FLOW4:
+                self::$defaultOptions['transaction_function'] = 'Neos\Flow\Mvc\Controller\ActionController::callActionMethod';
+                self::$defaultOptions['exception_function'] = 'Neos\Flow\Error\AbstractExceptionHandler::handleException';
                 break;
 
             case self::FRAMEWORK_TYPO3:
