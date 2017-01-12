@@ -629,12 +629,12 @@ class Profiler
                 break;
 
             case self::FRAMEWORK_FLOW:
-                self::$defaultOptions['transaction_function'] = 'TYPO3\Flow\Mvc\Controller\ActionController::callActionMethod';
+                self::$defaultOptions['transaction_function'] = 'TYPO3\Flow\Mvc\Controller\ActionController_Original::callActionMethod';
                 self::$defaultOptions['exception_function'] = 'TYPO3\Flow\Error\AbstractExceptionHandler::handleException';
                 break;
 
             case self::FRAMEWORK_FLOW4:
-                self::$defaultOptions['transaction_function'] = 'Neos\Flow\Mvc\Controller\ActionController::callActionMethod';
+                self::$defaultOptions['transaction_function'] = 'Neos\Flow\Mvc\Controller\ActionController_Original::callActionMethod';
                 self::$defaultOptions['exception_function'] = 'Neos\Flow\Error\AbstractExceptionHandler::handleException';
                 break;
 
