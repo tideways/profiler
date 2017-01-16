@@ -337,6 +337,11 @@ class NetworkBackend implements Backend
 
     public function socketStore(array $trace)
     {
+        if (!function_exists('json_encode')) {
+            \Tideways\Profiler::log(1, "ext/json must be installed and activated to use Tideways.");
+            return;
+        }
+
         set_error_handler(array(__CLASS__, "ignoreErrorsHandler"));
         $fp = stream_socket_client($this->socketFile);
 
@@ -374,6 +379,11 @@ class NetworkBackend implements Backend
 
     public function udpStore(array $trace)
     {
+        if (!function_exists('json_encode')) {
+            \Tideways\Profiler::log(1, "ext/json must be installed and activated to use Tideways.");
+            return;
+        }
+
         set_error_handler(array(__CLASS__, "ignoreErrorsHandler"));
         $fp = stream_socket_client("udp://" . $this->udp);
 
@@ -382,6 +392,8 @@ class NetworkBackend implements Backend
             restore_error_handler();
             return;
         }
+
+        unset($trace['id']);
 
         $payload = json_encode($trace);
         // Golang is very strict about json types.
@@ -501,6 +513,7 @@ class Profiler
     const FRAMEWORK_DRUPAL8            = 'drupal8';
     const FRAMEWORK_TYPO3              = 'typo3';
     const FRAMEWORK_FLOW               = 'flow';
+    const FRAMEWORK_FLOW4              = 'flow4';
     const FRAMEWORK_CAKE2              = 'cake2';
     const FRAMEWORK_CAKE3              = 'cake3';
     const FRAMEWORK_YII                = 'yii';
@@ -567,6 +580,7 @@ class Profiler
     public static function detectFramework($framework)
     {
         self::$defaultOptions['framework'] = $framework;
+        $cli = (php_sapi_name() === 'cli');
 
         switch ($framework) {
             case self::FRAMEWORK_ZEND_FRAMEWORK1:
@@ -579,13 +593,21 @@ class Profiler
                 break;
 
             case self::FRAMEWORK_SYMFONY2_COMPONENT:
-                self::$defaultOptions['transaction_function'] = 'Symfony\Component\HttpKernel\Controller\ControllerResolver::createController';
-                self::$defaultOptions['exception_function'] = 'Symfony\Component\HttpKernel\HttpKernel::handleException';
+                self::$defaultOptions['transaction_function'] = $cli
+                    ? 'Symfony\Component\Console\Application::find'
+                    : 'Symfony\Component\HttpKernel\Controller\ControllerResolver::createController';
+                self::$defaultOptions['exception_function'] = $cli
+                    ? 'Symfony\Component\Console\Application::renderException'
+                    : 'Symfony\Component\HttpKernel\HttpKernel::handleException';
                 break;
 
             case self::FRAMEWORK_SYMFONY2_FRAMEWORK:
-                self::$defaultOptions['transaction_function'] = 'Symfony\Bundle\FrameworkBundle\Controller\ControllerResolver::createController';
-                self::$defaultOptions['exception_function'] = 'Symfony\Component\HttpKernel\HttpKernel::handleException';
+                self::$defaultOptions['transaction_function'] = $cli
+                    ? 'Symfony\Component\Console\Application::find'
+                    : 'Symfony\Bundle\FrameworkBundle\Controller\ControllerResolver::createController';
+                self::$defaultOptions['exception_function'] = $cli
+                    ? 'Symfony\Component\Console\Application::renderException'
+                    : 'Symfony\Component\HttpKernel\HttpKernel::handleException';
                 break;
 
             case self::FRAMEWORK_OXID:
@@ -594,8 +616,12 @@ class Profiler
                 break;
 
             case self::FRAMEWORK_SHOPWARE:
-                self::$defaultOptions['transaction_function'] = 'Enlight_Controller_Action::dispatch';
-                self::$defaultOptions['exception_function'] = 'Zend_Controller_Response_Abstract::setException';
+                self::$defaultOptions['transaction_function'] = $cli
+                    ? 'Symfony\Component\Console\Application::find'
+                    : 'Enlight_Controller_Action::dispatch';
+                self::$defaultOptions['exception_function'] = $cli
+                    ? 'Symfony\Component\Console\Application::renderException'
+                    : 'Zend_Controller_Response_Abstract::setException';
                 break;
 
             case self::FRAMEWORK_WORDPRESS:
@@ -603,8 +629,12 @@ class Profiler
                 break;
 
             case self::FRAMEWORK_LARAVEL:
-                self::$defaultOptions['transaction_function'] = 'Illuminate\Routing\Controller::callAction';
-                self::$defaultOptions['exception_function'] = 'Illuminate\Foundation\Http\Kernel::reportException';
+                self::$defaultOptions['transaction_function'] = $cli
+                    ? 'Symfony\Component\Console\Application::find'
+                    : 'Illuminate\Routing\Controller::callAction';
+                self::$defaultOptions['exception_function'] = $cli
+                    ? 'Symfony\Component\Console\Application::renderException'
+                    : 'Illuminate\Foundation\Http\Kernel::reportException';
                 break;
 
             case self::FRAMEWORK_MAGENTO:
@@ -628,8 +658,13 @@ class Profiler
                 break;
 
             case self::FRAMEWORK_FLOW:
-                self::$defaultOptions['transaction_function'] = 'TYPO3\Flow\Mvc\Controller\ActionController::callActionMethod';
+                self::$defaultOptions['transaction_function'] = 'TYPO3\Flow\Mvc\Controller\ActionController_Original::callActionMethod';
                 self::$defaultOptions['exception_function'] = 'TYPO3\Flow\Error\AbstractExceptionHandler::handleException';
+                break;
+
+            case self::FRAMEWORK_FLOW4:
+                self::$defaultOptions['transaction_function'] = 'Neos\Flow\Mvc\Controller\ActionController_Original::callActionMethod';
+                self::$defaultOptions['exception_function'] = 'Neos\Flow\Error\AbstractExceptionHandler::handleException';
                 break;
 
             case self::FRAMEWORK_TYPO3:
@@ -736,9 +771,7 @@ class Profiler
      */
     public static function start($options = array(), $sampleRate = null)
     {
-        if (self::$mode !== self::MODE_DISABLED) {
-            return;
-        }
+        self::ignoreTransaction(); // this discards any data that was collected up to now and restarts.
 
         if (!is_array($options)) {
             $options = array('api_key' => $options);
@@ -753,10 +786,9 @@ class Profiler
             'collect' => isset($_SERVER['TIDEWAYS_COLLECT']) ? $_SERVER['TIDEWAYS_COLLECT'] : (ini_get("tideways.collect") ?: self::MODE_PROFILING),
             'monitor' => isset($_SERVER['TIDEWAYS_MONITOR']) ? $_SERVER['TIDEWAYS_MONITOR'] : (ini_get("tideways.monitor") ?: self::MODE_BASIC),
             'triggered' => self::MODE_FULL,
-            'distributed_tracing_hosts' => isset($_SERVER['TIDEWAYS_ALLOWED_HOSTS']) ? $_SERVER['TIDEWAYS_ALLOWED_HOSTS'] : (ini_get("tideways.distributed_tracing_hosts") ?: '127.0.0.1'),
-            'distributed_trace' => null,
             'log_level' => ini_get("tideways.log_level") ?: 0,
-            'service' => ini_get("tideways.service"),
+            'service' => isset($_SERVER['TIDEWAYS_SERVICE']) ? $_SERVER['TIDEWAYS_SERVICE'] : ini_get("tideways.service"),
+            'framework' => isset($_SERVER['TIDEWAYS_FRAMEWORK']) ? $_SERVER['TIDEWAYS_FRAMEWORK'] : ini_get("tideways.framework"),
         );
         $options = array_merge($defaults, $options);
 
@@ -951,6 +983,10 @@ class Profiler
                 ini_get('tideways.connection') ?: 'unix:///var/run/tideways/tidewaysd.sock',
                 ini_get('tideways.udp_connection') ?: '127.0.0.1:8135'
             );
+        }
+
+        if ($options['framework']) {
+            self::detectFramework($options['framework']);
         }
 
         if (function_exists('tideways_enable')) {
@@ -1220,13 +1256,6 @@ class Profiler
         self::$logLevel = 0;
     }
 
-    private static function createRootSpan()
-    {
-
-        return $span;
-    }
-
-
     /**
      * Use Request or Script information for the transaction name.
      *
@@ -1330,19 +1359,9 @@ class Profiler
         if (ini_get("tideways.auto_start") || isset($_SERVER["TIDEWAYS_AUTO_START"])) {
             if (self::isStarted() === false) {
                 if (php_sapi_name() !== "cli") {
-                    /**
-                     * In Web context we auto start with the framework transaction name
-                     * configured in INI or ENV variable.
-                     */
-                    if (ini_get("tideways.framework")) {
-                        self::detectFramework(ini_get("tideways.framework"));
-                    } else if (isset($_SERVER['TIDEWAYS_FRAMEWORK'])) {
-                        self::detectFramework($_SERVER["TIDEWAYS_FRAMEWORK"]);
-                    }
                     self::start();
-                } else if (php_sapi_name() === "cli" && !empty($_SERVER["TIDEWAYS_SESSION"]) && isset($_SERVER['argv'])) {
-                    self::start();
-                    self::setTransactionName("cli:" . basename($_SERVER['argv'][0]));
+                } else if (php_sapi_name() === "cli" && isset($_SERVER['argv'])) {
+                    self::start(array('sample_rate' => 0, 'service' => 'cli'));
                 }
             }
         }
