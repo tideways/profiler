@@ -1360,7 +1360,7 @@ class Profiler
             if (self::isStarted() === false) {
                 if (php_sapi_name() !== "cli") {
                     self::start();
-                } else if (php_sapi_name() === "cli" && isset($_SERVER['argv'])) {
+                } else if (php_sapi_name() === "cli" && ini_get("tideways.monitor_cli") && isset($_SERVER['argv'])) {
                     self::start(array('sample_rate' => 0, 'service' => 'cli'));
                 }
             }
