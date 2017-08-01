@@ -684,10 +684,12 @@ class Profiler
 
             case self::FRAMEWORK_YII:
                 self::$defaultOptions['transaction_function'] = 'CController::run';
+                self::$defaultOptions['exception_function'] = 'CApplication::handleException';
                 break;
 
             case self::FRAMEWORK_YII2:
                 self::$defaultOptions['transaction_function'] = 'yii\\base\\Module::runAction';
+                self::$defaultOptions['exception_function'] = 'yii\\base\\ErrorHandler::handleException';
                 break;
 
             default:
@@ -782,7 +784,7 @@ class Profiler
 
         $defaults = array(
             'api_key' => isset($_SERVER['TIDEWAYS_APIKEY']) ? $_SERVER['TIDEWAYS_APIKEY'] : ini_get("tideways.api_key"),
-            'sample_rate' => isset($_SERVER['TIDEWAYS_SAMPLERATE']) ? intval($_SERVER['TIDEWAYS_SAMPLERATE']) : (ini_get("tideways.sample_rate") ?: 10),
+            'sample_rate' => isset($_SERVER['TIDEWAYS_SAMPLERATE']) ? intval($_SERVER['TIDEWAYS_SAMPLERATE']) : (ini_get("tideways.sample_rate") ?: 0),
             'collect' => isset($_SERVER['TIDEWAYS_COLLECT']) ? $_SERVER['TIDEWAYS_COLLECT'] : (ini_get("tideways.collect") ?: self::MODE_PROFILING),
             'monitor' => isset($_SERVER['TIDEWAYS_MONITOR']) ? $_SERVER['TIDEWAYS_MONITOR'] : (ini_get("tideways.monitor") ?: self::MODE_BASIC),
             'triggered' => self::MODE_FULL,
@@ -891,15 +893,20 @@ class Profiler
     private static function decideProfiling($treshold, array $options = array())
     {
         $vars = array();
+        $type = null;
 
         if (isset($_SERVER['HTTP_X_TIDEWAYS_PROFILER']) && is_string($_SERVER['HTTP_X_TIDEWAYS_PROFILER'])) {
             parse_str($_SERVER['HTTP_X_TIDEWAYS_PROFILER'], $vars);
+            $type = 'header X-Tideways-Profiler';
         } else if (isset($_SERVER['TIDEWAYS_SESSION']) && is_string($_SERVER['TIDEWAYS_SESSION'])) {
             parse_str($_SERVER['TIDEWAYS_SESSION'], $vars);
+            $type = 'environment variable TIDEWAYS_SESSION';
         } else if (isset($_COOKIE['TIDEWAYS_SESSION']) && is_string($_COOKIE['TIDEWAYS_SESSION'])) {
             parse_str($_COOKIE['TIDEWAYS_SESSION'], $vars);
+            $type = 'cookie TIDEWAYS_SESSION';
         } else if (isset($_GET['_tideways']) && is_array($_GET['_tideways'])) {
             $vars = $_GET['_tideways'];
+            $type = 'GET parameter';
         }
 
         if (isset($_SERVER['TIDEWAYS_DISABLE_SESSIONS']) && $_SERVER['TIDEWAYS_DISABLE_SESSIONS']) {
@@ -908,10 +915,26 @@ class Profiler
 
         if (isset($vars['hash'], $vars['time'], $vars['user'], $vars['method'])) {
             $message = 'method=' . $vars['method'] . '&time=' . $vars['time'] . '&user=' . $vars['user'];
-            self::log(3, "Found explicit trigger trace parameters in request.");
+            self::log(3, "Found explicit trigger trace parameters in " . $type);
 
             if ($vars['time'] > time() && hash_hmac('sha256', $message, md5(self::$trace['apiKey'])) === $vars['hash']) {
-                self::log(2, "Successful trigger trace request with valid hash.");
+
+                if (self::$logLevel >= 2) {
+                    $location = "unknown";
+                    $backtrace = debug_backtrace();
+
+                    for ($i = count($backtrace) - 1; $i >= 0; $i--) { // find the last call location before going into Tideways\Profiler
+                        if (isset($backtrace[$i-1]['class']) && $backtrace[$i-1]['class'] === "Tideways\\Profiler") {
+                            $location = isset($backtrace[$i]['file']) ? $backtrace[$i]['file'] : '';
+                            $location .= (':' . (isset($backtrace[$i]['line']) ? $backtrace[$i]['line'] : ''));
+
+                            break;
+                        }
+                    }
+
+                    self::log(2, "Successful trigger trace request with valid hash in " . $type . " started from " . $location);
+                }
+
                 self::$trace['keep'] = true; // always keep
 
                 self::enableProfiler($options['triggered']);
@@ -1021,6 +1044,24 @@ class Profiler
     public static function setTransactionName($name)
     {
         self::$trace['tx'] = !empty($name) ? $name : 'default';
+    }
+
+    /**
+     * Returns the current transaction name.
+     *
+     * If you use automatic framework transaction detection, this is "default"
+     * until the engine detects the transaction name somewhere in the
+     * frameworks lifecycle. No guarantees given when this happens.
+     *
+     * @return string
+     */
+    public static function getTransactionName()
+    {
+        if (self::$trace['tx'] === 'default' && self::$extension === self::EXTENSION_TIDEWAYS) {
+            return tideways_transaction_name() ?: 'default';
+        }
+
+        return self::$trace['tx'];
     }
 
     public static function setServiceName($name)
@@ -1358,10 +1399,15 @@ class Profiler
     {
         if (ini_get("tideways.auto_start") || isset($_SERVER["TIDEWAYS_AUTO_START"])) {
             if (self::isStarted() === false) {
-                if (php_sapi_name() !== "cli") {
-                    self::start();
-                } else if (php_sapi_name() === "cli" && ini_get("tideways.monitor_cli") && isset($_SERVER['argv'])) {
-                    self::start(array('sample_rate' => 0, 'service' => 'cli'));
+                switch (php_sapi_name()) {
+                    case 'cli':
+                        if (ini_get("tideways.monitor_cli")) {
+                            self::start(array('service' => 'cli'));
+                        }
+                        break;
+
+                    default:
+                        self::start();
                 }
             }
         }
