@@ -1041,6 +1041,21 @@ class Profiler
         return mt_rand(1, PHP_INT_MAX);
     }
 
+    /**
+     * Returns the transactionName
+     *
+     * @return string
+     */
+    public function getTransactionName()
+    {
+        $sReturn = '';
+        if (isset($trace) && is_array($trace) && array_key_exists('tx', $trace)) {
+            $sReturn = self::$trace['tx'];
+        }
+
+        return $sReturn;
+    }
+
     public static function setTransactionName($name)
     {
         self::$trace['tx'] = !empty($name) ? $name : 'default';
