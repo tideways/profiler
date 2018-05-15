@@ -2,7 +2,7 @@
 /**
  * Tideways
  *
- * Copyright 2014-2016 Tideways GmbH
+ * Copyright 2014-2018 Tideways GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -351,7 +351,12 @@ class NetworkBackend implements Backend
             return;
         }
 
-        $payload = json_encode(array('type' => self::TYPE_TRACE, 'payload' => $trace));
+        $flags = 0;
+        if (defined('JSON_PARTIAL_OUTPUT_ON_ERROR')) {
+            $flags = constant('JSON_PARTIAL_OUTPUT_ON_ERROR');
+        }
+
+        $payload = json_encode(array('type' => self::TYPE_TRACE, 'payload' => $trace), $flags);
 
         $timeout = (int)ini_get('tideways.timeout');
 
@@ -504,6 +509,7 @@ class Profiler
     const FRAMEWORK_SYMFONY2_COMPONENT = 'symfony2c';
     const FRAMEWORK_SYMFONY2_FRAMEWORK = 'symfony2';
     const FRAMEWORK_OXID               = 'oxid';
+    const FRAMEWORK_OXID6              = 'oxid6';
     const FRAMEWORK_SHOPWARE           = 'shopware';
     const FRAMEWORK_WORDPRESS          = 'wordpress';
     const FRAMEWORK_LARAVEL            = 'laravel';
@@ -613,6 +619,11 @@ class Profiler
             case self::FRAMEWORK_OXID:
                 self::$defaultOptions['transaction_function'] = 'oxView::setClassName';
                 self::$defaultOptions['exception_function'] = 'oxShopControl::_handleBaseException';
+                break;
+
+            case self::FRAMEWORK_OXID6:
+                self::$defaultOptions['transaction_function'] = 'OxidEsales\EshopCommunity\Core\Controller\BaseController::setClassKey';
+                self::$defaultOptions['exception_function'] = 'OxidEsales\EshopCommunity\Core\ShopControl::logException';
                 break;
 
             case self::FRAMEWORK_SHOPWARE:
@@ -894,16 +905,20 @@ class Profiler
     {
         $vars = array();
         $type = null;
+        $tidewaysReferenceId = null;
 
         if (isset($_SERVER['HTTP_X_TIDEWAYS_PROFILER']) && is_string($_SERVER['HTTP_X_TIDEWAYS_PROFILER'])) {
             parse_str($_SERVER['HTTP_X_TIDEWAYS_PROFILER'], $vars);
             $type = 'header X-Tideways-Profiler';
+            $tidewaysReferenceId = isset($_SERVER['HTTP_X_TIDEWAYS_REF']) ? $_SERVER['HTTP_X_TIDEWAYS_REF'] : null;
         } else if (isset($_SERVER['TIDEWAYS_SESSION']) && is_string($_SERVER['TIDEWAYS_SESSION'])) {
             parse_str($_SERVER['TIDEWAYS_SESSION'], $vars);
             $type = 'environment variable TIDEWAYS_SESSION';
+            $tidewaysReferenceId = isset($_SERVER['TIDEWAYS_REF']) ? $_SERVER['TIDEWAYS_REF'] : null;
         } else if (isset($_COOKIE['TIDEWAYS_SESSION']) && is_string($_COOKIE['TIDEWAYS_SESSION'])) {
             parse_str($_COOKIE['TIDEWAYS_SESSION'], $vars);
             $type = 'cookie TIDEWAYS_SESSION';
+            $tidewaysReferenceId = isset($_COOKIE['TIDEWAYS_REF']) ? $_COOKIE['TIDEWAYS_REF'] : null;
         } else if (isset($_GET['_tideways']) && is_array($_GET['_tideways'])) {
             $vars = $_GET['_tideways'];
             $type = 'GET parameter';
@@ -917,7 +932,12 @@ class Profiler
             $message = 'method=' . $vars['method'] . '&time=' . $vars['time'] . '&user=' . $vars['user'];
             self::log(3, "Found explicit trigger trace parameters in " . $type);
 
-            if ($vars['time'] > time() && hash_hmac('sha256', $message, md5(self::$trace['apiKey'])) === $vars['hash']) {
+            if (hash_hmac('sha256', $message, md5(self::$trace['apiKey'])) === $vars['hash']) {
+                if ($vars['time'] < time()) {
+                    self::log(1, "trigger trace request with " . $type . " is authenticated, but signature is too old: " . $vars['time'] . " < " . time());
+                    self::$mode = self::MODE_DISABLED;
+                    return;
+                }
 
                 if (self::$logLevel >= 2) {
                     $location = "unknown";
@@ -938,10 +958,16 @@ class Profiler
                 self::$trace['keep'] = true; // always keep
 
                 self::enableProfiler($options['triggered']);
-                self::setCustomVariable('user', $vars['user']);
+                self::setCustomVariable('tw.uid', $vars['user']);
+
+                if ($tidewaysReferenceId) {
+                    self::setCustomVariable('tw.ref', $tidewaysReferenceId);
+                }
                 return;
             } else {
-                self::log(1, "Invalid trigger trace request cannot be authenticated.");
+                self::log(1, "Invalid trigger trace request with " . $type . " cannot be authenticated.");
+                self::$mode = self::MODE_DISABLED;
+                return;
             }
         }
 
@@ -1357,7 +1383,12 @@ class Profiler
             $exception = new \RuntimeException($exception);
         }
 
-        if (self::$error === true || !self::$currentRootSpan || !($exception instanceof \Exception)) {
+        if (self::$error === true || !self::$currentRootSpan || !is_object($exception)) {
+            return;
+        }
+
+        // PHP 5 compatible way to check for !($exception instanceof Throwable)
+        if (!($exception instanceof \Exception) && !in_array('Throwable', class_implements($exception, false))) {
             return;
         }
 
@@ -1401,7 +1432,7 @@ class Profiler
             if (self::isStarted() === false) {
                 switch (php_sapi_name()) {
                     case 'cli':
-                        if (ini_get("tideways.monitor_cli")) {
+                        if (ini_get("tideways.monitor_cli") || isset($_SERVER['TIDEWAYS_SESSION'])) {
                             self::start(array('service' => 'cli'));
                         }
                         break;
