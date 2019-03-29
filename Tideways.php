@@ -298,6 +298,7 @@ namespace Tideways\Profiler;
 interface Backend
 {
     public function socketStore(array $trace);
+    public function socketStoreMeasurement(array $measurement);
     public function udpStore(array $trace);
 }
 
@@ -307,14 +308,16 @@ class NetworkBackend implements Backend
 {
     /**
      * Old v1 type profile format.
-     *
-     * @var string
      */
     const TYPE_PROFILE = 'profile';
     /**
      * v2 type traces
      */
     const TYPE_TRACE = 'trace';
+    /**
+     * new format for all types
+     */
+    const TYPE_T2 = 't2';
 
     private $socketFile;
     private $udp;
@@ -374,6 +377,49 @@ class NetworkBackend implements Backend
 
         stream_set_timeout($fp, 0, $timeout); // 10 milliseconds max
 
+        if (fwrite($fp, $payload) < strlen($payload)) {
+            \Tideways\Profiler::log(1, "Could not write payload to socket.");
+        }
+        fclose($fp);
+        restore_error_handler();
+        \Tideways\Profiler::log(3, "Sent trace to socket.");
+    }
+
+    public function socketStoreMeasurement(array $measurement)
+    {
+        if (!function_exists('json_encode')) {
+            \Tideways\Profiler::log(1, "ext/json must be installed and activated to use Tideways.");
+            return;
+        }
+
+        set_error_handler(array(__CLASS__, "ignoreErrorsHandler"));
+        $fp = stream_socket_client($this->socketFile);
+
+        if ($fp == false) {
+            \Tideways\Profiler::log(1, "Cannot connect to socke for recording measurement.");
+            restore_error_handler();
+            return;
+        }
+
+        $spans = array(
+            array(
+                'ts' => $measurement['spans'][0]['b'][0],
+                'd' => $measurement['spans'][0]['e'][0] - $measurement['spans'][0]['b'][0],
+                'a' => array(
+                    'tw.key' => $measurement['apiKey'],
+                    'tw.s' => $measurement['service'],
+                    'tw.tx' => $measurement['tx'],
+                    'php.memory' => measurement['spans'][0]['a']['mem'],
+                ),
+                'n' => 'php',
+            )
+        );
+
+        $payload = json_encode(array('type' => self::TYPE_T2, 'payload' => $spans));
+        // Golang is very strict about json types.
+        $payload = str_replace('"a":[]', '"a":{}', $payload);
+
+        stream_set_timeout($fp, 0, 200);
         if (fwrite($fp, $payload) < strlen($payload)) {
             \Tideways\Profiler::log(1, "Could not write payload to socket.");
         }
@@ -1317,7 +1363,7 @@ class Profiler
             self::$backend->socketStore(self::$trace);
         } else {
             self::$trace['spans'] = isset($spans[0]) ? array($spans[0]) : array(); // prevent flooding udp by accident
-            self::$backend->udpStore(self::$trace);
+            self::$backend->socketStoreMeasurement(self::$trace);
         }
         self::$trace = null; // free memory
         self::$logLevel = 0;
