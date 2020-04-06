@@ -409,7 +409,7 @@ class NetworkBackend implements Backend
                     'tw.key' => $measurement['apiKey'],
                     'tw.s' => $measurement['service'],
                     'tw.tx' => $measurement['tx'],
-                    'php.memory' => measurement['spans'][0]['a']['mem'],
+                    'php.memory' => $measurement['spans'][0]['a']['mem'],
                 ),
                 'n' => 'php',
             )
