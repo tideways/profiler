@@ -1,3 +1,5 @@
+> **IMPORTANT NOTICE** This library is not needed anymore, because the `Tideways\Profiler` class is now provided directly by the `tideways` PHP extension. [Follow the Installation Guides](https://support.tideways.com/documentation/setup/index.html) to install the PHP extension.
+
 # Tideways PHP Library
 
 PHP Client Library for [Tideways PHP Profiler](https://tideways.io) platform.
